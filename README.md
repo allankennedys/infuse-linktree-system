@@ -22,7 +22,7 @@ npm install
 docker compose up -d                 # Postgres local em 127.0.0.1:54329
 cp .env.example .env                 # preencha (veja abaixo)
 npm run db:migrate
-npm run admin:criar -- voce@dominio.com "Seu Nome"   # pede a senha (mín. 12 caracteres)
+npm run admin:criar -- seu-usuario "Seu Nome"   # pede a senha (mín. 12 caracteres)
 npm run dev
 ```
 
@@ -46,7 +46,7 @@ Códigos gerados em desenvolvimento apontam para `localhost` e não servem para 
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Testes unitários e de integração (não precisa de banco externo) |
 | `npm run db:migrate` | Aplica as migrations pendentes |
-| `npm run admin:criar -- email "Nome"` | Cria admin ou troca a senha (derruba as sessões dele) |
+| `npm run admin:criar -- usuario "Nome"` | Cria admin ou troca a senha (derruba as sessões dele) |
 | `npm run retencao` | Aplica a política de retenção manualmente |
 
 ## Variáveis de ambiente
@@ -55,7 +55,7 @@ Códigos gerados em desenvolvimento apontam para `localhost` e não servem para 
 | --- | --- | --- |
 | `APP_BASE_URL` | sim | Origem pública codificada nos QR Codes. `https` em produção, sem caminho. **Definitiva depois de imprimir.** |
 | `DATABASE_URL` | sim | Postgres. Em serverless, use a string do pooler. |
-| `SESSION_SECRET` | sim | ≥ 32 caracteres aleatórios. Anonimiza IPs/e-mails no rate limiting. |
+| `SESSION_SECRET` | sim | ≥ 32 caracteres aleatórios. Anonimiza IPs/usuários no rate limiting. |
 | `CRON_SECRET` | para o cron | ≥ 16 caracteres. Protege `/api/cron/retencao`. |
 | `DESTINATION_ALLOWED_HOSTS` | não | Lista de hosts de destino permitidos (`wa.me,*.exemplo.com`). Vazio = qualquer HTTPS. |
 | `SCAN_RETENTION_DAYS` / `AUDIT_RETENTION_DAYS` | não | Padrão 90 / 730. |
@@ -89,7 +89,7 @@ Nenhum segredo fica no repositório; `.env` está no `.gitignore`.
   no banco fica só o SHA-256 do token; expira em 12 h.
 - Toda página, server action e rota de download confere a sessão no servidor.
 - CSRF: mutações só por Server Actions (o Next recusa `Origin` diferente do host) e cookie `SameSite=Lax`.
-- Rate limiting: login com 8 tentativas por e-mail e 20 por IP a cada 15 min, persistido no banco.
+- Rate limiting: login com 8 tentativas por usuário e 20 por IP a cada 15 min, persistido no banco.
   `/q` com 60 leituras/min por IP **em memória, por instância** — em serverless isso é melhor esforço;
   para um limite global use o firewall da Vercel ou da Cloudflare.
 - Cabeçalhos: CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, HSTS, `noindex`.
@@ -100,7 +100,7 @@ tela de gestão de administradores (use `npm run admin:criar`); todos os admins 
 
 ## Privacidade e LGPD
 
-- Dados guardados: nome da loja (opcional), destino, observações internas, e-mail/nome dos administradores.
+- Dados guardados: nome da loja (opcional), destino, observações internas, usuário/nome dos administradores.
 - Leituras: total por código e por hora. Sem IP, sem user agent, sem cookies na rota pública.
 - Sem analytics, pixels ou terceiros.
 - Retenção: leituras por hora 90 dias, auditoria 24 meses, sessões 12 h, contadores de limite 1 dia
@@ -120,7 +120,7 @@ Nada foi publicado por este projeto. Passos para quem for subir (exemplo com Ver
 3. Criar o projeto na Vercel a partir deste repositório e definir `APP_BASE_URL`, `DATABASE_URL`,
    `SESSION_SECRET` e `CRON_SECRET`.
 4. Rodar as migrations contra o banco de produção: `DATABASE_URL=... npm run db:migrate`.
-5. Criar o primeiro admin: `DATABASE_URL=... npm run admin:criar -- email "Nome"`.
+5. Criar o primeiro admin: `DATABASE_URL=... npm run admin:criar -- usuario "Nome"`.
 6. Apontar o DNS do subdomínio para a Vercel (o DNS da Infuse está na Cloudflare) e aguardar o HTTPS.
 7. `vercel.json` já agenda o job de retenção diário; a Vercel envia `CRON_SECRET` como Bearer.
 

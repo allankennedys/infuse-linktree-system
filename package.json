@@ -1,0 +1,42 @@
+{
+  "name": "infuse-qr",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "tsx scripts/migrar.ts",
+    "admin:criar": "tsx scripts/criar-admin.ts",
+    "retencao": "tsx scripts/retencao.ts"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "jsqr": "^1.4.0",
+    "next": "^16.4.0",
+    "pdf-lib": "^1.17.1",
+    "pg": "^8.23.1",
+    "pngjs": "^7.0.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

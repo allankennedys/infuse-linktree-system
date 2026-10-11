@@ -1,0 +1,14 @@
+# Postgres apenas para desenvolvimento local.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: infuseqr
+      POSTGRES_PASSWORD: infuseqr_dev
+      POSTGRES_DB: infuseqr
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - infuseqr_pg:/var/lib/postgresql/data
+volumes:
+  infuseqr_pg:

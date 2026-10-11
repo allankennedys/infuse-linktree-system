@@ -1,0 +1,130 @@
+import type { Db } from "./db";
+import { validarDestino, type OpcoesDestino } from "./destino";
+import { ehIcone } from "./icones";
+
+export const LIMITES_PAGINA = { links: 12, titulo: 60, subtitulo: 60, rodape: 80, rotulo: 40 };
+export const PADRAO_PAGINA = { cor_fundo: "#030305", cor_destaque: "#2f7bff" };
+
+export type LinkDaPagina = { rotulo: string; url: string; icone: string };
+export type Pagina = {
+  titulo: string; subtitulo: string | null; subtitulo_url: string | null; rodape: string | null;
+  cor_fundo: string; cor_destaque: string; links: LinkDaPagina[];
+};
+/** O que chega do formulário, ainda sem validar. */
+export type EntradaPagina = {
+  titulo: string; subtitulo: string; subtitulo_url: string; rodape: string;
+  cor_fundo: string; cor_destaque: string; links: LinkDaPagina[];
+};
+
+const COR = /^#[0-9a-f]{6}$/;
+
+/** Valida e normaliza a página. Todos os endereços passam pela mesma regra dos destinos. */
+export function validarPagina(e: EntradaPagina, op: OpcoesDestino = {}): { ok: true; pagina: Pagina } | { ok: false; erro: string } {
+  const L = LIMITES_PAGINA;
+  const titulo = e.titulo.trim();
+  const subtitulo = e.subtitulo.trim() || null;
+  const rodape = e.rodape.trim() || null;
+  if (!titulo) return { ok: false, erro: "Informe o nome que aparece no topo da página." };
+  if (titulo.length > L.titulo) return { ok: false, erro: `Nome da página: máximo de ${L.titulo} caracteres.` };
+  if (subtitulo && subtitulo.length > L.subtitulo) return { ok: false, erro: `Subtítulo: máximo de ${L.subtitulo} caracteres.` };
+  if (rodape && rodape.length > L.rodape) return { ok: false, erro: `Rodapé: máximo de ${L.rodape} caracteres.` };
+
+  const cor_fundo = e.cor_fundo.trim().toLowerCase() || PADRAO_PAGINA.cor_fundo;
+  const cor_destaque = e.cor_destaque.trim().toLowerCase() || PADRAO_PAGINA.cor_destaque;
+  if (!COR.test(cor_fundo) || !COR.test(cor_destaque)) return { ok: false, erro: "Cor inválida. Use o formato #rrggbb." };
+
+  let subtitulo_url: string | null = null;
+  if (e.subtitulo_url.trim()) {
+    if (!subtitulo) return { ok: false, erro: "Para usar o link do subtítulo, preencha o subtítulo." };
+    const v = validarDestino(e.subtitulo_url, op);
+    if (!v.ok) return { ok: false, erro: `Link do subtítulo: ${v.erro}` };
+    subtitulo_url = v.url;
+  }
+
+  // Linha totalmente vazia é ignorada (o admin adicionou e não preencheu).
+  const preenchidos = e.links.filter((l) => l.rotulo.trim() || l.url.trim());
+  if (preenchidos.length === 0) return { ok: false, erro: "Adicione pelo menos um link à página." };
+  if (preenchidos.length > L.links) return { ok: false, erro: `Máximo de ${L.links} links por página.` };
+  const links: LinkDaPagina[] = [];
+  for (const [i, l] of preenchidos.entries()) {
+    const rotulo = l.rotulo.trim();
+    if (!rotulo) return { ok: false, erro: `Link ${i + 1}: informe o texto do botão.` };
+    if (rotulo.length > L.rotulo) return { ok: false, erro: `Link ${i + 1}: texto com no máximo ${L.rotulo} caracteres.` };
+    const v = validarDestino(l.url, op);
+    if (!v.ok) return { ok: false, erro: `Link ${i + 1} (${rotulo}): ${v.erro}` };
+    links.push({ rotulo, url: v.url, icone: ehIcone(l.icone) ? l.icone : "link" });
+  }
+  return { ok: true, pagina: { titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque, links } };
+}
+
+export async function obterPagina(db: Db, codigoId: number): Promise<Pagina | null> {
+  const p = await db.query<Omit<Pagina, "links">>(
+    "select titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque from paginas where codigo_id = $1", [codigoId]);
+  if (!p.rows[0]) return null;
+  const links = await db.query<LinkDaPagina>(
+    "select rotulo, url, icone from pagina_links where codigo_id = $1 order by posicao", [codigoId]);
+  return { ...p.rows[0], links: links.rows };
+}
+
+export async function salvarPagina(db: Db, codigoId: number, p: Pagina): Promise<void> {
+  await db.query(
+    `insert into paginas (codigo_id, titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     on conflict (codigo_id) do update set titulo = excluded.titulo, subtitulo = excluded.subtitulo,
+       subtitulo_url = excluded.subtitulo_url, rodape = excluded.rodape, cor_fundo = excluded.cor_fundo,
+       cor_destaque = excluded.cor_destaque, atualizado_em = now()`,
+    [codigoId, p.titulo, p.subtitulo, p.subtitulo_url, p.rodape, p.cor_fundo, p.cor_destaque]);
+  await db.query("delete from pagina_links where codigo_id = $1", [codigoId]);
+  for (const [i, l] of p.links.entries()) {
+    await db.query("insert into pagina_links (codigo_id, posicao, rotulo, url, icone) values ($1, $2, $3, $4, $5)",
+      [codigoId, i, l.rotulo, l.url, l.icone]);
+  }
+}
+
+// ---- Imagens (logo e fundo) ----
+
+export const TIPOS_DE_IMAGEM = ["logo", "fundo"] as const;
+export type TipoDeImagem = (typeof TIPOS_DE_IMAGEM)[number];
+export const TAMANHO_MAXIMO_IMAGEM: Record<TipoDeImagem, number> = { logo: 600 * 1024, fundo: 2 * 1024 * 1024 };
+
+/** Identifica o formato pelos primeiros bytes, não pelo nome nem pelo tipo declarado. SVG não é aceito. */
+export function detectarMime(b: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
+  const inicio = (assinatura: number[], desloc = 0) => assinatura.every((v, i) => b[desloc + i] === v);
+  if (inicio([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  if (inicio([0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (inicio([0x52, 0x49, 0x46, 0x46]) && inicio([0x57, 0x45, 0x42, 0x50], 8)) return "image/webp";
+  return null;
+}
+
+export function validarImagem(tipo: TipoDeImagem, dados: Uint8Array): { ok: true; mime: string } | { ok: false; erro: string } {
+  if (dados.length === 0) return { ok: false, erro: "Escolha um arquivo de imagem." };
+  const limite = TAMANHO_MAXIMO_IMAGEM[tipo];
+  if (dados.length > limite) return { ok: false, erro: `Imagem grande demais: o limite é ${Math.round(limite / 1024)} KB.` };
+  const mime = detectarMime(dados);
+  if (!mime) return { ok: false, erro: "Formato não aceito. Envie PNG, JPG ou WebP." };
+  return { ok: true, mime };
+}
+
+export async function salvarImagem(db: Db, codigoId: number, tipo: TipoDeImagem, mime: string, dados: Uint8Array) {
+  await db.query(
+    `insert into imagens (codigo_id, tipo, mime, dados) values ($1, $2, $3, $4)
+     on conflict (codigo_id, tipo) do update set mime = excluded.mime, dados = excluded.dados, atualizado_em = now()`,
+    [codigoId, tipo, mime, Buffer.from(dados)]);
+}
+
+export async function removerImagem(db: Db, codigoId: number, tipo: TipoDeImagem): Promise<boolean> {
+  return (await db.query("delete from imagens where codigo_id = $1 and tipo = $2", [codigoId, tipo])).rowCount > 0;
+}
+
+export async function obterImagem(db: Db, codigoId: number, tipo: TipoDeImagem) {
+  const { rows } = await db.query<{ mime: string; dados: Uint8Array }>(
+    "select mime, dados from imagens where codigo_id = $1 and tipo = $2", [codigoId, tipo]);
+  return rows[0] ?? null;
+}
+
+/** Versão de cada imagem existente, para compor URLs que mudam quando a imagem muda. */
+export async function versoesDasImagens(db: Db, codigoId: number): Promise<Partial<Record<TipoDeImagem, number>>> {
+  const { rows } = await db.query<{ tipo: TipoDeImagem; v: number }>(
+    "select tipo, extract(epoch from atualizado_em)::int as v from imagens where codigo_id = $1", [codigoId]);
+  return Object.fromEntries(rows.map((r) => [r.tipo, r.v]));
+}
