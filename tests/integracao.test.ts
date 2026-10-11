@@ -86,6 +86,7 @@ describe("cenário principal: 10 códigos, Loja A → Loja B sem reimprimir", ()
     expect(resposta.headers.get("cache-control")).toContain("no-store");
     const html = await resposta.text();
     expect(html).toContain("Infuse Software");
+    expect(html).toContain("Pagar via Pix");
     expect(html).toContain(formatarNumero(itens[0]!.numero));
     expect(html).not.toContain(formatarNumero(itens[1]!.numero));
     expect((await obterCodigo(db, itens[0]!.id))!.acessos).toBe(0);

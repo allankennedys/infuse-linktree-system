@@ -1,7 +1,7 @@
 import type { Db } from "./db";
 import { registrarAcesso, resolverToken, type Leitura } from "./codigos";
 import { renderizarPagina } from "./pagina-html";
-import { IMAGENS_INFUSE, PAGINA_INFUSE } from "./pagina-infuse";
+import { EXTRAS_INFUSE, IMAGENS_INFUSE, PAGINA_INFUSE } from "./pagina-infuse";
 import { formatarNumero } from "./token";
 import type { OpcoesDestino } from "./destino";
 
@@ -59,7 +59,7 @@ export async function atenderLeitura(db: Db, token: string, op: OpcoesPublico = 
   }
   if (!alvo) return respostaDeFallback(404);
   if (alvo.tipo === "disponivel") {
-    return new Response(renderizarPagina(PAGINA_INFUSE, IMAGENS_INFUSE, formatarNumero(alvo.numero)), {
+    return new Response(renderizarPagina(PAGINA_INFUSE, IMAGENS_INFUSE, { ...EXTRAS_INFUSE, codigo: formatarNumero(alvo.numero) }), {
       status: 200, headers: { ...CABECALHOS, "Content-Type": "text/html; charset=utf-8" },
     });
   }

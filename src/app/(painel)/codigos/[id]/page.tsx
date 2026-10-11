@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { AcessoDoCliente } from "@/componentes/AcessoDoCliente";
 import { Etiqueta } from "@/componentes/Etiqueta";
 import { FormConfiguracao } from "@/componentes/FormConfiguracao";
 import { ImagensDaPagina } from "@/componentes/ImagensDaPagina";
 import { PainelDeAcoes } from "@/componentes/PainelDeAcoes";
 import { exigirAdmin } from "@/lib/auth";
-import { historicoDoCodigo, ROTULO_ACAO } from "@/lib/auditoria";
+import { autorDe, historicoDoCodigo, ROTULO_ACAO } from "@/lib/auditoria";
 import { obterCodigo } from "@/lib/codigos";
 import { getDb } from "@/lib/db";
 import { baseUrl } from "@/lib/env";
 import { formatarData, inteiroPositivo } from "@/lib/formato";
+import { SENHA_MINIMA_GERENTE } from "@/lib/gerentes";
 import { ICONES } from "@/lib/icones";
 import { LIMITES_PAGINA, obterPagina, PADRAO_PAGINA, TAMANHO_MAXIMO_IMAGEM, versoesDasImagens } from "@/lib/pagina";
 import { formatarNumero, urlPublica } from "@/lib/token";
@@ -44,20 +47,24 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
     publica = urlPublica(baseUrl(), codigo.token);
   } catch {}
   const png = `/api/codigos/${codigo.id}/png`;
+  const cabecalhos = await headers();
+  const host = cabecalhos.get("host") ?? "";
+  const protocolo = cabecalhos.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const enderecoDeLogin = `${protocolo}://${host}/login`;
   const ativo = codigo.status === "CONFIGURADO" && (ehPagina ? !!pagina : !!codigo.destino);
 
   return (
     <>
       <div className="titulo-pagina">
-        <h1><span className="mono">{formatarNumero(codigo.numero)}</span> <Etiqueta status={codigo.status} /></h1>
-        <Link className="botao" href={`/lotes/${codigo.lote_id}`}>Lote: {codigo.lote_nome}</Link>
+        <h1>{formatarNumero(codigo.numero)} <Etiqueta status={codigo.status} /></h1>
+        <Link className="botao" href={`/lotes/${codigo.lote_id}`}>Lote {codigo.lote_nome}</Link>
       </div>
 
-      <section className="duas-colunas">
-        <div className="cartao qr">
+      <section className="resumo-codigo">
+        <div className="qr">
           {publica ? (
             // eslint-disable-next-line @next/next/no-img-element -- imagem gerada por rota autenticada
-            <img src={`${png}?previa=1`} alt={`QR Code ${formatarNumero(codigo.numero)}`} width={220} />
+            <img src={`${png}?previa=1`} alt={`QR Code ${formatarNumero(codigo.numero)}`} width={180} />
           ) : (
             <p className="aviso erro">APP_BASE_URL não configurada: não é possível gerar o QR.</p>
           )}
@@ -67,43 +74,47 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
           </div>
         </div>
 
-        <div className="cartao">
-          <dl className="enderecos">
-            <dt>URL pública fixa <small>— é o que está impresso no QR e nunca muda</small></dt>
+        <dl className="dados">
+            <dt>Endereço do QR</dt>
             <dd className="mono quebra">{publica ?? "—"}</dd>
-            <dt>Destino final atual <small>— editável a qualquer momento, sem reimprimir</small></dt>
-            <dd className="mono quebra">
+            <dt>Destino</dt>
+            <dd className="quebra">
               {ehPagina
                 ? pagina
-                  ? <>Página de links “{pagina.titulo}”, {pagina.links.length} botão(ões) ·{" "}
-                      <a href={`/api/codigos/${codigo.id}/previa`} target="_blank" rel="noopener noreferrer">ver prévia</a></>
+                  ? <>Página de links “{pagina.titulo}”, {pagina.links.length} botão(ões).{" "}
+                      <a href={`/api/codigos/${codigo.id}/previa`} target="_blank" rel="noopener noreferrer">Ver prévia</a></>
                   : "Página de links ainda não preenchida"
                 : codigo.destino
-                  ? <a href={codigo.destino} target="_blank" rel="noopener noreferrer nofollow">{codigo.destino}</a>
-                  : "Nenhum destino configurado"}
+                  ? <a className="mono" href={codigo.destino} target="_blank" rel="noopener noreferrer nofollow">{codigo.destino}</a>
+                  : "Nenhum"}
             </dd>
-            <dt>O que acontece ao ler o QR agora</dt>
+            <dt>Ao ler o QR agora</dt>
             <dd>
-              {!ativo
-                ? "Mostra a página “código ainda não disponível”. Nenhum destino é revelado."
-                : ehPagina
-                  ? "Abre a página de links, na própria URL pública do QR."
-                  : "Redireciona para o destino final atual."}
+              {codigo.status === "DISPONIVEL"
+                ? "Abre a página da Infuse com o nº de inventário."
+                : !ativo
+                  ? "Mostra a página de código indisponível."
+                  : ehPagina
+                    ? "Abre a página de links."
+                    : "Redireciona para o destino."}
             </dd>
-          </dl>
-          <p className="suave">
-            Leituras: {codigo.acessos} · última na hora de {formatarData(codigo.ultimo_acesso_em)} · criado em{" "}
-            {formatarData(codigo.criado_em)} · configurado em {formatarData(codigo.configurado_em)} · alterado em{" "}
-            {formatarData(codigo.atualizado_em)}
-          </p>
-        </div>
+            <dt>Leituras</dt>
+            <dd>{codigo.acessos}{codigo.ultimo_acesso_em && <span className="suave"> (última em {formatarData(codigo.ultimo_acesso_em)})</span>}</dd>
+            <dt>Criado</dt>
+            <dd>{formatarData(codigo.criado_em)}</dd>
+            <dt>Configurado</dt>
+            <dd>{formatarData(codigo.configurado_em)}</dd>
+            <dt>Alterado</dt>
+            <dd>{formatarData(codigo.atualizado_em)}</dd>
+        </dl>
       </section>
 
       {codigo.status !== "ARQUIVADO" && (
-        <section className="cartao">
+        <section className="secao">
           <h2>Configuração</h2>
+          <div>
           {codigo.status === "DESATIVADO" && (
-            <p className="aviso atencao">Código desativado: você pode editar, mas ele só volta a redirecionar depois de reativado.</p>
+            <p className="aviso atencao">Código desativado. Dá para editar, mas ele só volta a funcionar depois de reativado.</p>
           )}
           <FormConfiguracao
             id={codigo.id} urlPublica={publica} modo={codigo.modo}
@@ -118,39 +129,56 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
             icones={Object.entries(ICONES).map(([chave, i]) => ({ chave, rotulo: i.rotulo }))}
             maximoDeLinks={LIMITES_PAGINA.links}
           />
+          </div>
         </section>
       )}
 
       {codigo.status !== "ARQUIVADO" && (ehPagina || pagina) && (
-        <section className="cartao">
-          <h2>Imagens da página de links</h2>
+        <section className="secao">
+          <h2>Imagens da página</h2>
+          <div>
           <ImagensDaPagina
             id={codigo.id} versoes={versoes}
             limitesKb={{ logo: TAMANHO_MAXIMO_IMAGEM.logo / 1024, fundo: TAMANHO_MAXIMO_IMAGEM.fundo / 1024 }}
           />
+          </div>
         </section>
       )}
 
-      <section className="cartao">
+      {codigo.status !== "ARQUIVADO" && (
+        <section className="secao">
+          <h2>Acesso do cliente</h2>
+          <div>
+            <AcessoDoCliente
+              id={codigo.id} usuario={codigo.gerente_usuario} enderecoDeLogin={enderecoDeLogin}
+              senhaMinima={SENHA_MINIMA_GERENTE}
+            />
+          </div>
+        </section>
+      )}
+
+      <section className="secao">
         <h2>Ações</h2>
+        <div>
         <PainelDeAcoes
           id={codigo.id} status={codigo.status} temDestino={ehPagina ? !!pagina : !!codigo.destino}
-          temDados={!!(codigo.cliente || codigo.notas || codigo.destino || pagina || versoes.logo || versoes.fundo)}
+          temDados={!!(codigo.cliente || codigo.notas || codigo.destino || pagina || versoes.logo || versoes.fundo || codigo.gerente_id)}
         />
+        </div>
       </section>
 
-      <section>
+      <section className="secao">
         <h2>Histórico</h2>
         <div className="tabela-rolagem">
           <table>
-            <thead><tr><th>Quando</th><th>Ação</th><th>Detalhes</th><th>Administrador</th></tr></thead>
+            <thead><tr><th>Quando</th><th>Ação</th><th>Detalhes</th><th>Quem</th></tr></thead>
             <tbody>
               {historico.map((h) => (
                 <tr key={h.id}>
-                  <td>{formatarData(h.em)}</td>
+                  <td className="suave">{formatarData(h.em)}</td>
                   <td>{ROTULO_ACAO[h.acao] ?? h.acao}</td>
                   <td className="mono quebra">{detalhes(h.meta)}</td>
-                  <td>{h.admin_usuario ?? "—"}</td>
+                  <td>{autorDe(h)}</td>
                 </tr>
               ))}
             </tbody>

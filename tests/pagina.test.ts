@@ -7,8 +7,9 @@ import {
   detectarMime, obterImagem, obterPagina, salvarImagem, validarImagem, validarPagina, type EntradaPagina,
 } from "@/lib/pagina";
 import { renderizarPagina } from "@/lib/pagina-html";
+import { EXTRAS_INFUSE, IMAGENS_INFUSE, PAGINA_INFUSE } from "@/lib/pagina-infuse";
 import { atenderLeitura } from "@/lib/publico";
-import { gerarPng } from "@/lib/qr";
+import { decodificarRaster, gerarPng, rasterizarQr } from "@/lib/qr";
 import { BASE, criarBanco } from "./apoio";
 
 let db: Db;
@@ -82,6 +83,21 @@ describe("HTML público", () => {
     expect(html).not.toContain("javascript:");
     expect(html).not.toContain("url(x)");
     expect(html).toContain("https://exemplo.com/");
+  });
+  it("página da Infuse tem o Pix do infuse-links e o fundo azulado; página de cliente não", () => {
+    const html = renderizarPagina(PAGINA_INFUSE, IMAGENS_INFUSE, { ...EXTRAS_INFUSE, codigo: "IQ-000007" });
+    const payload = "00020126360014br.gov.bcb.pix0114+55759882245055204000053039865802BR5915INFUSE SOFTWARE6013FEIRA SANTANA62070503***6304BD0A";
+    expect(html).toContain("Pagar via Pix");
+    expect(html).toContain(`data-copiar="${payload}"`);
+    expect(html).toContain("(75) 98822-4505");
+    expect(html).toContain('class="fundo com-imagem azulado"');
+    expect(html).toContain("IQ-000007");
+    expect(html.indexOf("Pagar via Pix")).toBeLessThan(html.indexOf("Nosso Instagram"));
+    expect(decodificarRaster(rasterizarQr(payload))).toBe(payload);
+    expect(html).not.toMatch(/<script[^>]+src=/i);
+
+    const cliente = renderizarPagina(PAGINA_INFUSE, { fundo: "/x.jpg" });
+    expect(cliente).not.toMatch(/<script|Pix|azulado"/);
   });
   it("usa texto escuro em fundo claro e claro em fundo escuro", () => {
     const base = { titulo: "T", subtitulo: null, subtitulo_url: null, rodape: null, cor_destaque: "#2f7bff", links: [] };

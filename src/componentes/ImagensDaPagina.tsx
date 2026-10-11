@@ -3,15 +3,19 @@
 import { useActionState } from "react";
 import { acaoImagem, type EstadoSimples } from "@/app/(painel)/acoes";
 
-type Props = { id: number; versoes: { logo?: number; fundo?: number }; limitesKb: { logo: number; fundo: number } };
+type Props = {
+  id: number; versoes: { logo?: number; fundo?: number }; limitesKb: { logo: number; fundo: number };
+  /** Área do cliente: usa a action do gerente. */
+  acao?: typeof acaoImagem;
+};
 
 const TEXTOS = {
-  logo: { titulo: "Logo", dica: "Aparece no topo. PNG com fundo transparente fica melhor." },
-  fundo: { titulo: "Imagem de fundo", dica: "Opcional. Quando existe, cobre a cor de fundo e recebe uma película escura para o texto continuar legível." },
+  logo: { titulo: "Logo", dica: "PNG com fundo transparente fica melhor." },
+  fundo: { titulo: "Imagem de fundo", dica: "Cobre a cor de fundo e fica escurecida para o texto continuar legível." },
 } as const;
 
-export function ImagensDaPagina({ id, versoes, limitesKb }: Props) {
-  const [estado, acao, enviando] = useActionState<EstadoSimples, FormData>(acaoImagem, {});
+export function ImagensDaPagina({ id, versoes, limitesKb, acao: acaoDoCliente }: Props) {
+  const [estado, acao, enviando] = useActionState<EstadoSimples, FormData>(acaoDoCliente ?? acaoImagem, {});
   return (
     <>
       {estado.erro && <p className="aviso erro" role="alert">{estado.erro}</p>}

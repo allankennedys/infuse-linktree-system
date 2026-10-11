@@ -24,18 +24,26 @@ export type Codigo = {
   modo: Modo; pagina_titulo: string | null; destino: string | null; cliente: string | null; notas: string | null;
   acessos: number; ultimo_acesso_em: Date | null;
   criado_em: Date; atualizado_em: Date; configurado_em: Date | null;
+  gerente_id: number | null; gerente_usuario: string | null;
 };
 
+/** Administrador que executa a operação. */
 export type Ator = { id: number };
+/** Usuário do cliente: só configura o conteúdo dos códigos ligados a ele. */
+export type AtorGerente = { gerenteId: number };
+const autor = (a: Ator | AtorGerente) =>
+  "gerenteId" in a ? { adminId: null, gerenteId: a.gerenteId } : { adminId: a.id, gerenteId: null };
 
 /** Erro com mensagem segura para mostrar ao administrador. */
 export class ErroDeNegocio extends Error {}
 
 const SELECAO = `select c.id, c.token, c.numero, c.lote_id, l.nome as lote_nome, c.status, c.modo,
                         p.titulo as pagina_titulo, c.destino, c.cliente, c.notas, c.acessos,
-                        c.ultimo_acesso_em, c.criado_em, c.atualizado_em, c.configurado_em
+                        c.ultimo_acesso_em, c.criado_em, c.atualizado_em, c.configurado_em,
+                        c.gerente_id, g.usuario as gerente_usuario
                    from codigos c join lotes l on l.id = c.lote_id
-                   left join paginas p on p.codigo_id = c.id`;
+                   left join paginas p on p.codigo_id = c.id
+                   left join gerentes g on g.id = c.gerente_id`;
 
 export async function obterCodigo(db: Db, id: number): Promise<Codigo | null> {
   const { rows } = await db.query<Codigo>(`${SELECAO} where c.id = $1`, [id]);
@@ -62,14 +70,15 @@ export async function listarCodigos(db: Db, f: Filtros = {}): Promise<{ itens: C
   const q = (f.q ?? "").trim().slice(0, 80);
   if (q) {
     const padrao = p(`%${q.replace(/[\\%_]/g, "\\$&")}%`);
-    const ou = [`c.cliente ilike ${padrao}`, `l.nome ilike ${padrao}`];
+    const ou = [`c.cliente ilike ${padrao}`, `l.nome ilike ${padrao}`, `g.usuario ilike ${padrao}`];
     const numero = /^(?:iq-?)?0*(\d{1,9})$/i.exec(q)?.[1];
     if (numero) ou.push(`c.numero = ${p(Number(numero))}`);
     onde.push(`(${ou.join(" or ")})`);
   }
   const filtro = onde.length ? `where ${onde.join(" and ")}` : "";
   const total = await db.query<{ n: number }>(
-    `select count(*)::int as n from codigos c join lotes l on l.id = c.lote_id ${filtro}`, params);
+    `select count(*)::int as n from codigos c join lotes l on l.id = c.lote_id
+       left join gerentes g on g.id = c.gerente_id ${filtro}`, params);
 
   const porPagina = Math.min(Math.max(f.porPagina ?? 25, 1), 100);
   const pagina = Math.max(f.pagina ?? 1, 1);
@@ -110,18 +119,22 @@ const hostsDaPagina = (p: Pagina | null): string[] =>
  * ou mostrar a página de links (PAGINA). Nunca toca no token: a URL impressa não muda.
  * Os dados do modo que não está em uso ficam guardados, então dá para alternar.
  * Trocar o cliente de um código já associado e usar domínio com alerta exigem confirmação.
+ * Quando quem edita é o gerente (usuário do cliente), o código precisa ser dele, e os campos
+ * internos (cliente e observações) ficam como estão, venha o que vier na entrada.
  */
 export function configurarCodigo(
-  db: Db, id: number, entrada: EntradaConfiguracao, ator: Ator, op: OpcoesDestino = {},
+  db: Db, id: number, entrada: EntradaConfiguracao, ator: Ator | AtorGerente, op: OpcoesDestino = {},
 ): Promise<ResultadoConfiguracao> {
   return db.tx<ResultadoConfiguracao>(async (tx) => {
     const atual = await travar(tx, id);
+    const quem = autor(ator);
+    if (quem.gerenteId && atual.gerente_id !== quem.gerenteId) throw new ErroDeNegocio("Código não encontrado.");
     if (atual.status === "ARQUIVADO") {
-      return { tipo: "erro", erro: "Código arquivado. Desarquive antes de configurar." };
+      return { tipo: "erro", erro: quem.gerenteId ? "Este QR Code está fora de uso." : "Código arquivado. Desarquive antes de configurar." };
     }
     const modo: Modo = entrada.modo ?? "LINK";
-    const cliente = entrada.cliente.trim() || null;
-    const notas = entrada.notas.trim() || null;
+    const cliente = quem.gerenteId ? atual.cliente : entrada.cliente.trim() || null;
+    const notas = quem.gerenteId ? atual.notas : entrada.notas.trim() || null;
     if (cliente && cliente.length > 120) return { tipo: "erro", erro: "Nome do cliente: máximo de 120 caracteres." };
     if (notas && notas.length > 1000) return { tipo: "erro", erro: "Observações: máximo de 1000 caracteres." };
 
@@ -181,24 +194,24 @@ export function configurarCodigo(
               atualizado_por = $7,
               configurado_em = case when $8 then (case when $9 then now() else null end) else configurado_em end
         where id = $1`,
-      [id, destino, cliente, notas, status, modo, ator.id, mudouModo || mudouDestino || mudouPagina, temConteudo],
+      [id, destino, cliente, notas, status, modo, quem.adminId, mudouModo || mudouDestino || mudouPagina, temConteudo],
     );
     if (mudouModo) {
-      await registrar(tx, { adminId: ator.id, codigoId: id, acao: "MODO_ALTERADO", meta: { de: atual.modo, para: modo } });
+      await registrar(tx, { ...quem, codigoId: id, acao: "MODO_ALTERADO", meta: { de: atual.modo, para: modo } });
     }
     if (mudouDestino) {
       await registrar(tx, {
-        adminId: ator.id, codigoId: id, acao: "DESTINO_ALTERADO",
+        ...quem, codigoId: id, acao: "DESTINO_ALTERADO",
         meta: { de_host: hostDe(atual.destino), para_host: hostDe(destino) },
       });
     }
     if (mudouPagina) {
-      await registrar(tx, { adminId: ator.id, codigoId: id, acao: "PAGINA_ALTERADA", meta: { links: pagina!.links.length } });
+      await registrar(tx, { ...quem, codigoId: id, acao: "PAGINA_ALTERADA", meta: { links: pagina!.links.length } });
     }
     if (mudouCliente) {
-      await registrar(tx, { adminId: ator.id, codigoId: id, acao: reassociacao ? "REASSOCIADO" : "CLIENTE_ASSOCIADO" });
+      await registrar(tx, { ...quem, codigoId: id, acao: reassociacao ? "REASSOCIADO" : "CLIENTE_ASSOCIADO" });
     }
-    if (mudouNotas) await registrar(tx, { adminId: ator.id, codigoId: id, acao: "NOTAS_ALTERADAS" });
+    if (mudouNotas) await registrar(tx, { ...quem, codigoId: id, acao: "NOTAS_ALTERADAS" });
     return { tipo: "salvo", codigo: (await obterCodigo(tx, id))! };
   });
 }
@@ -247,11 +260,16 @@ export function operarCodigo(db: Db, id: number, operacao: Operacao, ator: Ator,
       case "limpar-dados":
         await tx.query(
           `update codigos set cliente = null, notas = null, destino = null, configurado_em = null, modo = 'LINK',
+                  gerente_id = null,
                   status = case when status = 'CONFIGURADO' then 'DISPONIVEL' else status end,
                   atualizado_em = now(), atualizado_por = $2
             where id = $1`, [id, ator.id]);
         await tx.query("delete from paginas where codigo_id = $1", [id]);
         await tx.query("delete from imagens where codigo_id = $1", [id]);
+        // O acesso do cliente sai junto; a conta some se não tiver outro código.
+        await tx.query(
+          "delete from gerentes g where g.id = $1 and not exists (select 1 from codigos c where c.gerente_id = g.id)",
+          [c.gerente_id]);
         // Os eventos antigos ficam, mas os hosts de destino registrados neles são apagados.
         await tx.query(
           "update auditoria set meta = meta - 'de_host' - 'para_host' where codigo_id = $1 and acao = 'DESTINO_ALTERADO'",
@@ -301,4 +319,11 @@ export async function registrarAcesso(db: Db, codigoId: number): Promise<void> {
   await db.query(
     `insert into acessos_hora (codigo_id, hora, total) values ($1, date_trunc('hour', now()), 1)
      on conflict (codigo_id, hora) do update set total = acessos_hora.total + 1`, [codigoId]);
+}
+
+/** Códigos que o gerente pode editar. Arquivados ficam de fora: estão fora de circulação. */
+export async function codigosDoGerente(db: Db, gerenteId: number): Promise<Codigo[]> {
+  const { rows } = await db.query<Codigo>(
+    `${SELECAO} where c.gerente_id = $1 and c.status <> 'ARQUIVADO' order by c.numero`, [gerenteId]);
+  return rows;
 }

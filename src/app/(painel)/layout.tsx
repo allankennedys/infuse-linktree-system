@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Navegacao } from "@/componentes/Navegacao";
 import { exigirAdmin } from "@/lib/auth";
 import { acaoSair } from "./acoes";
 
@@ -9,21 +10,19 @@ export default async function Painel({ children }: { children: React.ReactNode }
   const admin = await exigirAdmin();
   return (
     <>
-      <header className="topo">
-        <Link href="/" className="marca">
-          <Image src="/infuse-symbol.webp" alt="" width={28} height={28} />
-          <span>Infuse QR</span>
-        </Link>
-        <nav>
-          <Link href="/">Códigos</Link>
-          <Link href="/lotes">Lotes</Link>
-          <Link href="/auditoria">Auditoria</Link>
-        </nav>
-        <form action={acaoSair} className="sessao">
-          <span className="suave">{admin.usuario}</span>
-          <button className="botao pequeno">Sair</button>
-        </form>
-      </header>
+      <div className="faixa-topo">
+        <header className="topo">
+          <Link href="/" className="marca">
+            <Image src="/infuse-symbol.webp" alt="" width={24} height={24} />
+            <span>Infuse QR</span>
+          </Link>
+          <Navegacao />
+          <form action={acaoSair} className="sessao">
+            <span className="suave">{admin.usuario}</span>
+            <button className="botao texto">Sair</button>
+          </form>
+        </header>
+      </div>
       <main className="conteudo">{children}</main>
     </>
   );

@@ -12,6 +12,8 @@ type Props = {
   id: number; urlPublica: string | null; modo: "LINK" | "PAGINA";
   destino: string; cliente: string; notas: string; pagina: DadosDaPagina;
   icones: { chave: string; rotulo: string }[]; maximoDeLinks: number;
+  /** Área do cliente: usa a action do gerente e esconde os campos internos (cliente e observações). */
+  acao?: typeof acaoConfigurar; areaDoCliente?: boolean;
 };
 
 function hostDigitado(valor: string): { host?: string; problema?: string } {
@@ -30,7 +32,7 @@ function hostDigitado(valor: string): { host?: string; problema?: string } {
 }
 
 export function FormConfiguracao(props: Props) {
-  const [estado, acao, enviando] = useActionState<EstadoConfiguracao, FormData>(acaoConfigurar, { tipo: "inicial" });
+  const [estado, acao, enviando] = useActionState<EstadoConfiguracao, FormData>(props.acao ?? acaoConfigurar, { tipo: "inicial" });
   // Campos controlados: o React limpa formulários não controlados depois de cada action.
   const [modo, setModo] = useState(props.modo);
   const [destino, setDestino] = useState(props.destino);
@@ -72,46 +74,46 @@ export function FormConfiguracao(props: Props) {
       <input type="hidden" name="id" value={props.id} />
 
       <fieldset className="modos">
-        <legend>O que acontece quando alguém lê este QR?</legend>
+        <legend>Ao ler o QR</legend>
         <label className={modo === "LINK" ? "ativo" : ""}>
           <input type="radio" name="modo" value="LINK" checked={modo === "LINK"} onChange={() => setModo("LINK")} />
-          <span><strong>A — Link direto</strong><small>Redireciona na hora para um endereço que você define.</small></span>
+          <span><strong>Link direto</strong><small>Redireciona para um endereço.</small></span>
         </label>
         <label className={modo === "PAGINA" ? "ativo" : ""}>
           <input type="radio" name="modo" value="PAGINA" checked={modo === "PAGINA"} onChange={() => setModo("PAGINA")} />
-          <span><strong>B — Página de links</strong><small>Abre uma página com logo, cores e vários botões.</small></span>
+          <span><strong>Página de links</strong><small>Abre uma página com logo e botões.</small></span>
         </label>
       </fieldset>
 
       {modo === "LINK" ? (
         <label className="campo">
-          <span>Destino final (para onde o QR leva)</span>
+          <span>Destino</span>
           <input
             type="url" name="destino" value={destino} onChange={(e) => setDestino(e.target.value)}
             placeholder="https://…" maxLength={2048} inputMode="url" autoComplete="off" spellCheck={false}
           />
           <small className={previa.problema ? "texto-erro" : "suave"}>
-            {previa.host ? <>Domínio de destino: <strong className="mono">{previa.host}</strong></>
-              : previa.problema ?? "Vazio = código sem destino (mostra a página de “ainda não disponível”)."}
+            {previa.host ? <>Domínio: <span className="mono">{previa.host}</span></>
+              : previa.problema ?? "Sem destino, o QR abre a página da Infuse."}
           </small>
         </label>
       ) : (
         <div className="pilha editor-pagina">
           <div className="grade-2">
             <label className="campo">
-              <span>Nome no topo da página</span>
+              <span>Nome</span>
               <input type="text" name="p_titulo" {...campo("titulo")} maxLength={60} required autoComplete="off" />
             </label>
             <label className="campo">
-              <span>Subtítulo (opcional, ex.: @loja)</span>
-              <input type="text" name="p_subtitulo" {...campo("subtitulo")} maxLength={60} autoComplete="off" />
+              <span>Subtítulo</span>
+              <input type="text" name="p_subtitulo" {...campo("subtitulo")} maxLength={60} placeholder="@loja" autoComplete="off" />
             </label>
             <label className="campo">
-              <span>Link do subtítulo (opcional)</span>
+              <span>Link do subtítulo</span>
               <input type="url" name="p_subtitulo_url" {...campo("subtitulo_url")} maxLength={2048} placeholder="https://…" autoComplete="off" spellCheck={false} />
             </label>
             <label className="campo">
-              <span>Frase do rodapé (opcional)</span>
+              <span>Frase do rodapé</span>
               <input type="text" name="p_rodape" {...campo("rodape")} maxLength={80} autoComplete="off" />
             </label>
             <label className="campo cor">
@@ -119,13 +121,13 @@ export function FormConfiguracao(props: Props) {
               <input type="color" name="p_cor_fundo" {...campo("cor_fundo")} />
             </label>
             <label className="campo cor">
-              <span>Cor de destaque (ícones e bordas)</span>
+              <span>Cor de destaque</span>
               <input type="color" name="p_cor_destaque" {...campo("cor_destaque")} />
             </label>
           </div>
 
           <div className="pilha">
-            <strong>Botões da página</strong>
+            <strong>Botões</strong>
             {pagina.links.map((l, i) => (
               <div className="linha-link" key={i}>
                 <select name="link_icone" value={l.icone} onChange={(e) => mudarLink(i, { icone: e.target.value })} aria-label={`Ícone do botão ${i + 1}`}>
@@ -146,29 +148,32 @@ export function FormConfiguracao(props: Props) {
             <div>
               <button type="button" className="botao pequeno" disabled={pagina.links.length >= props.maximoDeLinks}
                 onClick={() => setPagina({ ...pagina, links: [...pagina.links, { rotulo: "", url: "", icone: "link" }] })}>
-                + Adicionar botão
+                Adicionar botão
               </button>
             </div>
             <small className="suave">
-              Só endereços https://. Para WhatsApp use https://wa.me/55DDDNUMERO. Logo e imagem de fundo ficam na
-              seção “Imagens da página”, logo abaixo.
+              Só endereços https://. WhatsApp: https://wa.me/55DDDNUMERO.
             </small>
           </div>
         </div>
       )}
 
-      <label className="campo">
-        <span>Cliente / loja (opcional, uso interno)</span>
-        <input type="text" name="cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} maxLength={120} autoComplete="off" />
-      </label>
-      <label className="campo">
-        <span>Observações internas (nunca aparecem em página pública)</span>
-        <textarea name="notas" value={notas} onChange={(e) => setNotas(e.target.value)} maxLength={1000} rows={3} />
-      </label>
+      {!props.areaDoCliente && (
+        <>
+          <label className="campo">
+            <span>Cliente ou loja</span>
+            <input type="text" name="cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} maxLength={120} autoComplete="off" />
+          </label>
+          <label className="campo">
+            <span>Observações internas</span>
+            <textarea name="notas" value={notas} onChange={(e) => setNotas(e.target.value)} maxLength={1000} rows={3} />
+          </label>
+        </>
+      )}
 
       {estado.tipo === "confirmar" && enviado === digitado && (
         <div className="aviso atencao" role="alert">
-          <strong>Confirme antes de salvar. Nada foi alterado ainda.</strong>
+          <strong>Confirme antes de salvar. Nada foi alterado.</strong>
           {estado.avisos.map((a) => <p key={a}>{a}</p>)}
           {estado.avisos.length > 0 && (
             <label className="confirmacao">
@@ -189,18 +194,18 @@ export function FormConfiguracao(props: Props) {
           <span><strong>Salvo.</strong> O QR impresso continua o mesmo.</span>
           <p className="acoes-linha">
             {props.urlPublica && (
-              <a className="botao pequeno" href={props.urlPublica} target="_blank" rel="noopener noreferrer">Testar pelo QR (URL pública)</a>
+              <a className="botao pequeno" href={props.urlPublica} target="_blank" rel="noopener noreferrer">Abrir pelo endereço do QR</a>
             )}
             {estado.modo === "LINK" && estado.destino && (
-              <a className="botao pequeno" href={estado.destino} target="_blank" rel="noopener noreferrer nofollow">Abrir destino direto</a>
+              <a className="botao pequeno" href={estado.destino} target="_blank" rel="noopener noreferrer nofollow">Abrir destino</a>
             )}
             {estado.modo === "PAGINA" && (
-              <a className="botao pequeno" href={`/api/codigos/${props.id}/previa`} target="_blank" rel="noopener noreferrer">Ver prévia da página</a>
+              <a className="botao pequeno" href={`/api/codigos/${props.id}/previa`} target="_blank" rel="noopener noreferrer">Ver prévia</a>
             )}
           </p>
         </div>
       )}
-      <div><button className="botao primario" disabled={enviando}>{enviando ? "Salvando…" : "Salvar configuração"}</button></div>
+      <div><button className="botao primario" disabled={enviando}>{enviando ? "Salvando…" : "Salvar"}</button></div>
     </form>
   );
 }

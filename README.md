@@ -110,6 +110,17 @@ tela de gestão de administradores (use `npm run admin:criar`); todos os admins 
 - `/privacidade` traz um texto-base. **Antes de publicar**, a Infuse precisa revisar o texto e incluir a
   identificação do controlador e o canal de contato do titular.
 
+## Acesso do cliente
+
+Na tela de cada código, a seção "Acesso do cliente" cria um usuário e senha para repassar ao cliente. Ele entra
+pelo mesmo `/login` e cai em `/cliente`, onde vê só os códigos ligados a ele e edita o destino, a página de links
+e as imagens. Não vê nem altera cliente, observações, status, lotes ou auditoria, e pode trocar a própria senha.
+
+- O mesmo usuário pode ser ligado a vários códigos (basta repetir o nome, sem senha).
+- Sessão e cookie do cliente são separados dos do administrador; nenhuma rota do painel aceita a sessão do cliente.
+- "Remover dados do cliente" também tira o acesso. Conta sem nenhum código é apagada.
+- Exige a migration `0005_gerentes.sql`: rode `npm run db:migrate` no banco **antes** de publicar esta versão.
+
 ## Deploy
 
 Nada foi publicado por este projeto. Passos para quem for subir (exemplo com Vercel + Postgres gerenciado):

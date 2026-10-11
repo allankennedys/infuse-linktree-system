@@ -108,6 +108,17 @@ export function rasterizarQr(conteudo: string, op: OpcoesQr = {}): Raster {
   return r;
 }
 
+/** QR em SVG inline (um módulo por unidade, sem margem), para exibir em tela sobre fundo branco. */
+export function gerarSvg(conteudo: string): string {
+  const qr = QRCode.create(conteudo, { errorCorrectionLevel: "M" });
+  const n = qr.modules.size;
+  let d = "";
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) if (qr.modules.data[y * n + x]) d += `M${x} ${y}h1v1h-1z`;
+  }
+  return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" aria-hidden="true"><path fill="#000" d="${d}"/></svg>`;
+}
+
 export function rasterParaPng(r: Raster): Buffer {
   const png = new PNG({ width: r.largura, height: r.altura });
   png.data = Buffer.from(r.dados.buffer, r.dados.byteOffset, r.dados.byteLength);

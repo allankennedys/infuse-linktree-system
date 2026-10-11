@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { exigirAdmin, sair } from "@/lib/auth";
-import { registrar } from "@/lib/auditoria";
-import { configurarCodigo, ErroDeNegocio, obterCodigo, operarCodigo, type Modo, type Operacao } from "@/lib/codigos";
+import { configurarCodigo, ErroDeNegocio, operarCodigo, type Modo, type Operacao } from "@/lib/codigos";
 import { getDb } from "@/lib/db";
 import { baseUrl, ErroDeConfiguracao, hostsPermitidos, permiteDestinoLocal } from "@/lib/env";
 import { inteiroPositivo } from "@/lib/formato";
+import { definirGerente, removerGerente } from "@/lib/gerentes";
+import { trocarImagem } from "@/lib/imagem-acao";
 import { gerarLote } from "@/lib/lotes";
-import { removerImagem, salvarImagem, TIPOS_DE_IMAGEM, validarImagem, type TipoDeImagem } from "@/lib/pagina";
 
 // Toda action começa por exigirAdmin(): actions são endpoints POST públicos,
 // esconder o botão na interface não protege nada.
@@ -101,31 +101,29 @@ export async function acaoOperar(_: EstadoSimples, fd: FormData): Promise<Estado
 /** Envia (com arquivo) ou remove (campo "remover") o logo ou o fundo da página de links. */
 export async function acaoImagem(_: EstadoSimples, fd: FormData): Promise<EstadoSimples> {
   const admin = await exigirAdmin();
-  const id = inteiroPositivo(texto(fd, "id"));
-  const tipo = texto(fd, "tipo") as TipoDeImagem;
-  if (!id || !TIPOS_DE_IMAGEM.includes(tipo)) return { erro: "Pedido inválido." };
   try {
-    const db = getDb();
-    const codigo = await obterCodigo(db, id);
-    if (!codigo) return { erro: "Código não encontrado." };
-    if (codigo.status === "ARQUIVADO") return { erro: "Código arquivado. Desarquive antes de alterar." };
-    const nome = tipo === "logo" ? "Logo" : "Imagem de fundo";
+    const r = await trocarImagem(getDb(), inteiroPositivo(texto(fd, "id")), fd, { adminId: admin.id });
+    if (r.ok) revalidatePath("/", "layout");
+    return r;
+  } catch (e) {
+    return { erro: mensagemDe(e) };
+  }
+}
+
+/** Define (ou troca) o usuário do cliente que gerencia o código; com "remover", tira o acesso. */
+export async function acaoGerente(_: EstadoSimples, fd: FormData): Promise<EstadoSimples> {
+  const admin = await exigirAdmin();
+  const id = inteiroPositivo(texto(fd, "id"));
+  if (!id) return { erro: "Código inválido." };
+  try {
     if (fd.get("remover") === "1") {
-      if (await removerImagem(db, id, tipo)) {
-        await registrar(db, { adminId: admin.id, codigoId: id, acao: "IMAGEM_ALTERADA", meta: { tipo, removida: true } });
-      }
+      await removerGerente(getDb(), id, admin);
       revalidatePath("/", "layout");
-      return { ok: `${nome} removida.` };
+      return { ok: "Acesso do cliente removido." };
     }
-    const arquivo = fd.get("arquivo");
-    if (!(arquivo instanceof File)) return { erro: "Escolha um arquivo de imagem." };
-    const dados = new Uint8Array(await arquivo.arrayBuffer());
-    const v = validarImagem(tipo, dados);
-    if (!v.ok) return { erro: v.erro };
-    await salvarImagem(db, id, tipo, v.mime, dados);
-    await registrar(db, { adminId: admin.id, codigoId: id, acao: "IMAGEM_ALTERADA", meta: { tipo } });
+    const g = await definirGerente(getDb(), id, { usuario: texto(fd, "usuario"), senha: texto(fd, "senha") }, admin);
     revalidatePath("/", "layout");
-    return { ok: `${nome} salva.` };
+    return { ok: `Acesso salvo para o usuário ${g.usuario}.` };
   } catch (e) {
     return { erro: mensagemDe(e) };
   }

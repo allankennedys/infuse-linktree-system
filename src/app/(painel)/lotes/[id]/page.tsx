@@ -24,16 +24,18 @@ export default async function Lote({ params }: { params: Promise<{ id: string }>
   return (
     <>
       <div className="titulo-pagina">
-        <h1>{lote.nome} <span className="suave">#{lote.id}</span></h1>
+        <div>
+          <h1>{lote.nome} <span className="suave">#{lote.id}</span></h1>
+          <p className="suave">
+            {codigos.length} códigos, criado em {formatarData(lote.criado_em)} por {lote.criado_por_usuario ?? "—"}
+          </p>
+        </div>
         <Link className="botao" href={`/?lote=${lote.id}`}>Ver na lista de códigos</Link>
       </div>
-      <p className="suave">
-        {codigos.length} códigos · criado em {formatarData(lote.criado_em)} por {lote.criado_por_usuario ?? "—"} ·
-        todos conferidos (cada QR decodifica para a URL salva)
-      </p>
 
-      <section className="cartao">
-        <h2>Exportar para impressão</h2>
+      <section className="secao">
+        <h2>Exportar</h2>
+        <div>
         <form method="get" className="exportar">
           <label className="campo">
             <span>Layout do PDF</span>
@@ -41,22 +43,24 @@ export default async function Lote({ params }: { params: Promise<{ id: string }>
               {Object.entries(LAYOUTS).map(([chave, l]) => <option key={chave} value={chave}>{l.rotulo}</option>)}
             </select>
           </label>
-          <label className="confirmacao"><input type="checkbox" name="legenda" value="1" /> <span>Incluir legenda com o nº de inventário</span></label>
-          <label className="confirmacao"><input type="checkbox" name="guias" value="1" defaultChecked /> <span>Guias de corte no PDF</span></label>
+          <label className="confirmacao"><input type="checkbox" name="legenda" value="1" /> <span>Legenda com o nº de inventário</span></label>
+          <label className="confirmacao"><input type="checkbox" name="guias" value="1" defaultChecked /> <span>Guias de corte</span></label>
           <div className="acoes-linha">
             <button className="botao primario" formAction={`${api}/pdf`}>Baixar PDF A4</button>
-            <button className="botao" formAction={`${api}/pdf`} formTarget="_blank" name="abrir" value="1">Abrir PDF para imprimir</button>
-            <button className="botao" formAction={`${api}/zip`}>Baixar ZIP de PNGs</button>
-            <button className="botao" formAction={`${api}/csv`}>Baixar CSV</button>
+            <button className="botao" formAction={`${api}/pdf`} formTarget="_blank" name="abrir" value="1">Abrir PDF</button>
+            <button className="botao" formAction={`${api}/zip`}>ZIP de PNGs</button>
+            <button className="botao" formAction={`${api}/csv`}>CSV</button>
           </div>
         </form>
         <p className="suave">
-          Imprima em 100% (tamanho real), sem “ajustar à página”. A última parte do PDF é a folha de conferência interna.
-          Antes de produzir as plaquinhas, leia alguns códigos impressos com dois celulares diferentes.
+          Imprima em 100%, sem “ajustar à página”. O PDF termina com a folha de conferência interna.
         </p>
+        </div>
       </section>
 
-      <div className="tabela-rolagem">
+      <section className="secao">
+        <h2>Códigos</h2>
+        <div className="tabela-rolagem">
         <table>
           <thead><tr><th>Nº</th><th>ID curto</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -65,7 +69,7 @@ export default async function Lote({ params }: { params: Promise<{ id: string }>
                 <td className="mono"><Link href={`/codigos/${c.id}`}>{formatarNumero(c.numero)}</Link></td>
                 <td className="mono">{idCurto(c.token)}</td>
                 <td><Etiqueta status={c.status as Status} /></td>
-                <td>
+                <td className="direita">
                   <div className="acoes-linha">
                     <a className="botao pequeno" href={`/api/codigos/${c.id}/png`}>PNG</a>
                     <Link className="botao pequeno" href={`/codigos/${c.id}`}>Configurar</Link>
@@ -75,7 +79,8 @@ export default async function Lote({ params }: { params: Promise<{ id: string }>
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      </section>
     </>
   );
 }

@@ -19,7 +19,7 @@ function operacoesPara({ status, temDestino, temDados }: Props): Item[] {
   if (status === "DISPONIVEL" || status === "CONFIGURADO") {
     itens.push({
       operacao: "desativar", rotulo: "Desativar",
-      descricao: "O QR para de funcionar e passa a mostrar a página de indisponível. O destino ou a página ficam guardados e podem ser reativados.",
+      descricao: "O QR passa a mostrar a página de indisponível. O destino ou a página ficam guardados.",
       confirmacao: "Entendo que a plaquinha deste código para de funcionar até ser reativada.",
     });
   }
@@ -37,14 +37,14 @@ function operacoesPara({ status, temDestino, temDados }: Props): Item[] {
   } else {
     itens.push({
       operacao: "arquivar", rotulo: "Arquivar",
-      descricao: "Tira o código de circulação: não redireciona e não aceita nova configuração. O registro e o histórico são mantidos.",
+      descricao: "Tira o código de circulação. Não redireciona nem aceita nova configuração; o histórico fica.",
       confirmacao: "Entendo que, se esta plaquinha já foi impressa ou vendida, ela deixa de funcionar.",
     });
   }
   if (temDados) {
     itens.push({
       operacao: "limpar-dados", rotulo: "Remover dados do cliente",
-      descricao: "Apaga nome do cliente, observações, destino, página de links e imagens deste código (pedido de remoção ou troca de dono). O histórico de auditoria é mantido sem esses dados.",
+      descricao: "Apaga cliente, observações, destino, página de links, imagens e o acesso do cliente a este código. O histórico fica, sem esses dados.",
       confirmacao: "Confirmo a remoção. O código deixa de funcionar e esta ação não pode ser desfeita.",
     });
   }
@@ -59,6 +59,7 @@ export function PainelDeAcoes(props: Props) {
     <>
       {estado.erro && <p className="aviso erro" role="alert">{estado.erro}</p>}
       {estado.ok && <p className="aviso sucesso" role="status">{estado.ok}</p>}
+      <div>
       {operacoesPara(props).map((item) => (
         <form action={acao} className="operacao" key={item.operacao}>
           <input type="hidden" name="id" value={props.id} />
@@ -77,6 +78,7 @@ export function PainelDeAcoes(props: Props) {
           </button>
         </form>
       ))}
+      </div>
     </>
   );
 }

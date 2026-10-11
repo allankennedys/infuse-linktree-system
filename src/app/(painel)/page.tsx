@@ -25,15 +25,16 @@ export default async function Codigos({ searchParams }: { searchParams: Promise<
     listarLotes(db),
   ]);
   const paginas = Math.max(1, Math.ceil(lista.total / POR_PAGINA));
-  const link = (p: number) => {
+  const link = (p: number, s: Status | null = status ?? null) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
-    if (status) params.set("status", status);
+    if (s) params.set("status", s);
     if (loteId) params.set("lote", String(loteId));
     if (p > 1) params.set("pagina", String(p));
-    const s = params.toString();
-    return s ? `/?${s}` : "/";
+    const texto = params.toString();
+    return texto ? `/?${texto}` : "/";
   };
+  const todos = STATUS.reduce((soma, s) => soma + totais[s], 0);
 
   return (
     <>
@@ -42,56 +43,54 @@ export default async function Codigos({ searchParams }: { searchParams: Promise<
         <Link className="botao primario" href="/lotes">Gerar QR Codes</Link>
       </div>
 
-      <section className="resumo">
+      {totais.lotesComErro > 0 && (
+        <p className="aviso erro">
+          {totais.lotesComErro} lote(s) falharam na geração e não criaram códigos. <Link href="/lotes">Ver lotes</Link>
+        </p>
+      )}
+
+      <nav className="abas" aria-label="Filtrar por status">
+        <Link href={link(1, null)} aria-current={status ? undefined : "true"}>Todos <strong>{todos}</strong></Link>
         {STATUS.map((s) => (
-          <Link key={s} href={`/?status=${s}`} className={`numero ${s.toLowerCase()}`}>
-            <span>{ROTULO_STATUS[s]}</span>
-            <strong>{totais[s]}</strong>
+          <Link key={s} href={link(1, s)} aria-current={status === s ? "true" : undefined}>
+            {ROTULO_STATUS[s]} <strong>{totais[s]}</strong>
           </Link>
         ))}
-        <Link href="/lotes" className={`numero ${totais.lotesComErro ? "com-erro" : ""}`}>
-          <span>Lotes com erro</span>
-          <strong>{totais.lotesComErro}</strong>
-        </Link>
-      </section>
+      </nav>
 
       <form className="filtros" method="get">
-        <input type="search" name="q" defaultValue={q} placeholder="Buscar por nº de inventário, cliente ou lote" maxLength={80} />
-        <select name="status" defaultValue={status ?? ""} aria-label="Status">
-          <option value="">Todos os status</option>
-          {STATUS.map((s) => <option key={s} value={s}>{ROTULO_STATUS[s]}</option>)}
-        </select>
+        {status && <input type="hidden" name="status" value={status} />}
+        <input type="search" name="q" defaultValue={q} placeholder="Nº de inventário, cliente ou lote" maxLength={80} aria-label="Buscar" />
         <select name="lote" defaultValue={loteId ?? ""} aria-label="Lote">
           <option value="">Todos os lotes</option>
           {lotes.filter((l) => l.status === "PRONTO").map((l) => <option key={l.id} value={l.id}>{l.nome} (#{l.id})</option>)}
         </select>
-        <button className="botao">Filtrar</button>
-        {(q || status || loteId) && <Link href="/" className="suave">Limpar</Link>}
+        <button className="botao">Buscar</button>
+        {(q || loteId) && <Link href={status ? `/?status=${status}` : "/"} className="suave">Limpar</Link>}
       </form>
 
       <div className="tabela-rolagem">
         <table>
           <thead>
             <tr>
-              <th>Nº</th><th>Lote</th><th>Status</th><th>Cliente</th><th>Destino atual</th>
-              <th>Criado em</th><th>Última alteração</th><th></th>
+              <th>Nº</th><th>Status</th><th>Cliente</th><th>Destino</th><th>Lote</th>
+              <th>Criado</th><th>Alterado</th>
             </tr>
           </thead>
           <tbody>
             {lista.itens.map((c) => (
               <tr key={c.id}>
                 <td className="mono"><Link href={`/codigos/${c.id}`}>{formatarNumero(c.numero)}</Link></td>
-                <td>{c.lote_nome}</td>
                 <td><Etiqueta status={c.status} /></td>
                 <td>{c.cliente ?? "—"}</td>
                 <td className="mono quebra">{c.modo === "PAGINA" ? `Página: ${c.pagina_titulo ?? "não preenchida"}` : resumirDestino(c.destino)}</td>
-                <td>{formatarData(c.criado_em)}</td>
-                <td>{formatarData(c.atualizado_em)}</td>
-                <td><Link className="botao pequeno" href={`/codigos/${c.id}`}>Abrir</Link></td>
+                <td>{c.lote_nome}</td>
+                <td className="suave">{formatarData(c.criado_em)}</td>
+                <td className="suave">{formatarData(c.atualizado_em)}</td>
               </tr>
             ))}
             {lista.itens.length === 0 && (
-              <tr><td colSpan={8} className="vazio">
+              <tr><td colSpan={7} className="vazio">
                 {lista.total === 0 && !q && !status && !loteId
                   ? "Nenhum código ainda. Gere o primeiro lote."
                   : "Nenhum código corresponde aos filtros."}
@@ -102,9 +101,11 @@ export default async function Codigos({ searchParams }: { searchParams: Promise<
       </div>
 
       <nav className="paginacao">
-        <span className="suave">{lista.total} código(s) · página {Math.min(pagina, paginas)} de {paginas}</span>
-        {pagina > 1 && <Link className="botao pequeno" href={link(pagina - 1)}>Anterior</Link>}
-        {pagina < paginas && <Link className="botao pequeno" href={link(pagina + 1)}>Próxima</Link>}
+        <span className="suave">{lista.total} código(s), página {Math.min(pagina, paginas)} de {paginas}</span>
+        <span className="acoes-linha">
+          {pagina > 1 && <Link className="botao pequeno" href={link(pagina - 1)}>Anterior</Link>}
+          {pagina < paginas && <Link className="botao pequeno" href={link(pagina + 1)}>Próxima</Link>}
+        </span>
       </nav>
     </>
   );
