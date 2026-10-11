@@ -41,7 +41,7 @@ export default async function Lote({ params }: { params: Promise<{ id: string }>
               {Object.entries(LAYOUTS).map(([chave, l]) => <option key={chave} value={chave}>{l.rotulo}</option>)}
             </select>
           </label>
-          <label className="confirmacao"><input type="checkbox" name="legenda" value="1" defaultChecked /> <span>Incluir legenda com o nº de inventário</span></label>
+          <label className="confirmacao"><input type="checkbox" name="legenda" value="1" /> <span>Incluir legenda com o nº de inventário</span></label>
           <label className="confirmacao"><input type="checkbox" name="guias" value="1" defaultChecked /> <span>Guias de corte no PDF</span></label>
           <div className="acoes-linha">
             <button className="botao primario" formAction={`${api}/pdf`}>Baixar PDF A4</button>
@@ -67,7 +67,7 @@ export default async function Lote({ params }: { params: Promise<{ id: string }>
                 <td><Etiqueta status={c.status as Status} /></td>
                 <td>
                   <div className="acoes-linha">
-                    <a className="botao pequeno" href={`/api/codigos/${c.id}/png?legenda=1`}>PNG</a>
+                    <a className="botao pequeno" href={`/api/codigos/${c.id}/png`}>PNG</a>
                     <Link className="botao pequeno" href={`/codigos/${c.id}`}>Configurar</Link>
                   </div>
                 </td>

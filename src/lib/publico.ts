@@ -1,6 +1,8 @@
 import type { Db } from "./db";
 import { registrarAcesso, resolverToken, type Leitura } from "./codigos";
 import { renderizarPagina } from "./pagina-html";
+import { IMAGENS_INFUSE, PAGINA_INFUSE } from "./pagina-infuse";
+import { formatarNumero } from "./token";
 import type { OpcoesDestino } from "./destino";
 
 const CABECALHOS = {
@@ -16,7 +18,7 @@ const MENSAGENS = {
   503: ["Serviço temporariamente indisponível", "Tente ler o QR Code novamente em instantes."],
 } as const;
 
-/** Página pública genérica. Igual para código inexistente, sem destino, desativado ou arquivado. */
+/** Página pública genérica. Igual para código inexistente, com destino inválido, desativado ou arquivado. */
 export function respostaDeFallback(status: keyof typeof MENSAGENS): Response {
   const [titulo, texto] = MENSAGENS[status];
   const html = `<!doctype html>
@@ -45,6 +47,7 @@ export type OpcoesPublico = OpcoesDestino & {
 /**
  * GET /q/:token. Lê do banco, a cada acesso, o que o código faz agora: redireciona com
  * 302 sem cache para o destino atual ou mostra a página de links na própria URL do QR.
+ * Código ainda não configurado mostra a página da Infuse com o nº de inventário, sem contar acesso.
  * A estatística roda depois e nunca interfere na resposta.
  */
 export async function atenderLeitura(db: Db, token: string, op: OpcoesPublico = {}): Promise<Response> {
@@ -55,6 +58,11 @@ export async function atenderLeitura(db: Db, token: string, op: OpcoesPublico = 
     return respostaDeFallback(503);
   }
   if (!alvo) return respostaDeFallback(404);
+  if (alvo.tipo === "disponivel") {
+    return new Response(renderizarPagina(PAGINA_INFUSE, IMAGENS_INFUSE, formatarNumero(alvo.numero)), {
+      status: 200, headers: { ...CABECALHOS, "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
 
   const { id } = alvo;
   const contar = () => registrarAcesso(db, id).catch(() => {});

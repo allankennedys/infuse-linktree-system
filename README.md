@@ -69,7 +69,9 @@ Nenhum segredo fica no repositório; `.env` está no `.gitignore`.
 - **Token público**: 12 caracteres aleatórios (CSPRNG, ~70 bits), com índice único. O número de inventário
   (`IQ-000123`) é sequencial e serve só para controle interno; não dá acesso a nada.
 - **`GET /q/<token>`**: lê o destino no banco a cada acesso e responde `302` com `Cache-Control: no-store`.
-  Código inexistente, sem destino, desativado ou arquivado recebe a mesma página genérica (404), sem revelar nada.
+  Código ainda não configurado mostra a página de links da Infuse com o nº de inventário no rodapé (é assim que
+  se identifica a plaquinha, já que o QR é impresso sem legenda). Código inexistente, desativado ou arquivado
+  recebe a mesma página genérica (404), sem revelar nada.
   Banco fora do ar → 503 genérico.
 - **Estados**: `DISPONIVEL` → `CONFIGURADO` (tem destino) → `DESATIVADO` (reversível, guarda o destino) →
   `ARQUIVADO` (fora de circulação; desarquivar volta como desativado). Nada é apagado.
@@ -134,7 +136,8 @@ e agende `npm run retencao` uma vez por dia.
 - [ ] Lote de 10 gerado em produção; CSV conferido: 10 URLs diferentes, todas no domínio certo.
 - [ ] Um código configurado: `curl -I` na URL pública responde `302` + `cache-control: no-store` + `location` certo.
 - [ ] Destino alterado no painel: o mesmo QR leva ao novo destino.
-- [ ] Código desativado e código sem destino mostram a página genérica, sem destino antigo.
+- [ ] Código desativado mostra a página genérica, sem destino antigo; código ainda não configurado mostra a
+      página da Infuse com o nº de inventário.
 - [ ] Sem login, `/` redireciona para `/login` e `/api/lotes/1/zip` responde `401`.
 - [ ] PNG, ZIP e PDF abertos; PDF impresso em 100% e medido com régua.
 - [ ] QR impresso lido em pelo menos dois celulares diferentes (Android e iPhone), no material final da plaquinha.

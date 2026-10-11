@@ -57,13 +57,13 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
         <div className="cartao qr">
           {publica ? (
             // eslint-disable-next-line @next/next/no-img-element -- imagem gerada por rota autenticada
-            <img src={`${png}?previa=1&legenda=1`} alt={`QR Code ${formatarNumero(codigo.numero)}`} width={220} />
+            <img src={`${png}?previa=1`} alt={`QR Code ${formatarNumero(codigo.numero)}`} width={220} />
           ) : (
             <p className="aviso erro">APP_BASE_URL não configurada: não é possível gerar o QR.</p>
           )}
           <div className="acoes-linha">
+            <a className="botao pequeno" href={png}>PNG</a>
             <a className="botao pequeno" href={`${png}?legenda=1`}>PNG com legenda</a>
-            <a className="botao pequeno" href={png}>PNG sem legenda</a>
           </div>
         </div>
 

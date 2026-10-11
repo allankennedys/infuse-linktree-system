@@ -8,6 +8,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Um arquivo por vez: cada um sobe um PGlite, e em paralelo falta memória em máquina pequena.
+    fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

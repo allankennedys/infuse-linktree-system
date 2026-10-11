@@ -14,7 +14,7 @@ import { atenderLeitura } from "@/lib/publico";
 import { decodificarPng } from "@/lib/qr";
 import { aplicarRetencao } from "@/lib/retencao";
 import { validarSessao } from "@/lib/sessao";
-import { FORMATO_TOKEN, urlPublica } from "@/lib/token";
+import { FORMATO_TOKEN, formatarNumero, urlPublica } from "@/lib/token";
 import { BASE, criarBanco, SENHA } from "./apoio";
 
 let db: Db;
@@ -79,11 +79,16 @@ describe("cenário principal: 10 códigos, Loja A → Loja B sem reimprimir", ()
     expect(csv).not.toMatch(/senha|notas|cliente|destino/i);
   });
 
-  it("código ainda sem destino mostra o fallback, sem redirecionar", async () => {
+  it("código ainda não configurado mostra a página da Infuse com o nº de inventário, sem redirecionar nem contar acesso", async () => {
     const { resposta } = await escanear(zip[nomeDoArquivo(itens[0]!)]!);
-    expect(resposta.status).toBe(404);
+    expect(resposta.status).toBe(200);
     expect(resposta.headers.get("location")).toBeNull();
-    expect(await resposta.text()).toContain("ainda não está disponível");
+    expect(resposta.headers.get("cache-control")).toContain("no-store");
+    const html = await resposta.text();
+    expect(html).toContain("Infuse Software");
+    expect(html).toContain(formatarNumero(itens[0]!.numero));
+    expect(html).not.toContain(formatarNumero(itens[1]!.numero));
+    expect((await obterCodigo(db, itens[0]!.id))!.acessos).toBe(0);
   });
 
   it("configura o código 1 para a Loja A; ler o QR leva à Loja A com 302 sem cache", async () => {
@@ -114,7 +119,9 @@ describe("cenário principal: 10 códigos, Loja A → Loja B sem reimprimir", ()
 
   it("os outros 9 códigos continuam sem destino", async () => {
     for (const item of itens.slice(1)) {
-      expect((await escanear(zip[nomeDoArquivo(item)]!)).resposta.status).toBe(404);
+      const { resposta } = await escanear(zip[nomeDoArquivo(item)]!);
+      expect(resposta.status).toBe(200);
+      expect(resposta.headers.get("location")).toBeNull();
     }
     expect((await contagens(db)).CONFIGURADO).toBe(1);
     expect((await contagens(db)).DISPONIVEL).toBe(9);
@@ -151,7 +158,7 @@ describe("redirecionamento público", () => {
     expect((await atenderLeitura(db, token)).headers.get("location")).toBe("https://antigo.exemplo.com/segredo?k=1");
   });
 
-  it("fallback é idêntico para inexistente, disponível, desativado e arquivado", async () => {
+  it("fallback é idêntico para inexistente, desativado e arquivado", async () => {
     const inexistente = await (await atenderLeitura(db, "AAAAAAAAAAAA")).text();
     await operarCodigo(db, id, "arquivar", admin, true);
     expect(await (await atenderLeitura(db, token)).text()).toBe(inexistente);

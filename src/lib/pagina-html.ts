@@ -21,9 +21,10 @@ export type ImagensDaPagina = { logo?: string; fundo?: string };
 /**
  * HTML completo da página de links, no visual do infuse-links. Sem JavaScript e sem
  * recursos de terceiros. Todo texto vindo do banco é escapado; cores e URLs já foram
- * validadas na gravação e são conferidas de novo aqui.
+ * validadas na gravação e são conferidas de novo aqui. `codigo` é o nº de inventário,
+ * mostrado no fim da página enquanto o código ainda não foi configurado.
  */
-export function renderizarPagina(p: Pagina, imagens: ImagensDaPagina = {}): string {
+export function renderizarPagina(p: Pagina, imagens: ImagensDaPagina = {}, codigo?: string): string {
   const cor = (v: string, padrao: string) => (/^#[0-9a-f]{6}$/.test(v) ? v : padrao);
   const fundo = cor(p.cor_fundo, "#030305");
   const destaque = cor(p.cor_destaque, "#2f7bff");
@@ -83,6 +84,7 @@ body{background:${fundo};color:${t.texto};font-family:Kanit,system-ui,sans-serif
 .rotulo{flex:1;font-size:1.18rem;font-weight:500;overflow-wrap:anywhere;min-width:0}
 .seta{flex:none;width:22px;height:22px;color:${t.suave};transition:color .15s ease,transform .15s ease}
 .rodape{margin-top:auto;padding-top:32px;font-size:1.05rem;text-align:center;overflow-wrap:anywhere}
+.codigo{margin-top:10px;color:${t.suave};font-size:.85rem;letter-spacing:.08em;text-align:center}
 @media (max-height:640px){.link{min-height:70px;border-radius:18px}.icone{width:50px;height:50px;border-radius:13px}.icone svg{width:28px;height:28px}.icone.sem-fundo svg{width:50px;height:50px}.links{gap:12px}.nome{font-size:1.2rem}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -99,6 +101,7 @@ body{background:${fundo};color:${t.texto};font-family:Kanit,system-ui,sans-serif
       ${links}
     </nav>
     ${p.rodape ? `<p class="rodape">${escapar(p.rodape)}</p>` : '<p class="rodape"></p>'}
+    ${codigo ? `<p class="codigo">${escapar(codigo)}</p>` : ""}
   </main>
 </body>
 </html>`;

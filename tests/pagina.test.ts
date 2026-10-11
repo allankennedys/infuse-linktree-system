@@ -184,6 +184,10 @@ describe("opção B no mesmo QR", () => {
     expect(await obterPagina(db, id)).toBeNull();
     expect(await obterImagem(db, id, "logo")).toBeNull();
     expect((await db.query("select 1 from pagina_links where codigo_id = $1", [id])).rows).toHaveLength(0);
-    expect((await atenderLeitura(db, token)).status).toBe(404);
+    const resposta = await atenderLeitura(db, token);
+    expect(resposta.status).toBe(200);
+    const html = await resposta.text();
+    expect(html).toContain("Infuse Software");
+    expect(html).not.toMatch(/Padaria do Zé|padaria\.exemplo\.com|padariadoze/);
   });
 });

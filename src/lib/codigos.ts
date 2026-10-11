@@ -265,18 +265,20 @@ export function operarCodigo(db: Db, id: number, operacao: Operacao, ator: Ator,
 
 export type Leitura =
   | { tipo: "link"; id: number; destino: string }
+  | { tipo: "disponivel"; id: number; numero: number }
   | { tipo: "pagina"; id: number; pagina: Pagina; imagens: Partial<Record<TipoDeImagem, number>> };
 
 /**
- * Resolve um token público. Só devolve conteúdo para código CONFIGURADO: o destino
- * (se ainda passa na validação atual) ou a página de links. Qualquer outro caso é
- * null, sem distinção.
+ * Resolve um token público. Código CONFIGURADO devolve o destino (se ainda passa na
+ * validação atual) ou a página de links; código DISPONIVEL devolve só o nº de inventário.
+ * Qualquer outro caso é null, sem distinção.
  */
 export async function resolverToken(db: Db, token: string, op: OpcoesDestino = {}): Promise<Leitura | null> {
   if (!FORMATO_TOKEN.test(token)) return null;
-  const { rows } = await db.query<{ id: number; status: Status; modo: Modo; destino: string | null }>(
-    "select id, status, modo, destino from codigos where token = $1", [token]);
+  const { rows } = await db.query<{ id: number; numero: number; status: Status; modo: Modo; destino: string | null }>(
+    "select id, numero, status, modo, destino from codigos where token = $1", [token]);
   const c = rows[0];
+  if (c?.status === "DISPONIVEL") return { tipo: "disponivel", id: c.id, numero: c.numero };
   if (!c || c.status !== "CONFIGURADO") return null;
   if (c.modo === "PAGINA") {
     const salva = await obterPagina(db, c.id);
