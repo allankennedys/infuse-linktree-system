@@ -61,7 +61,7 @@ export async function acaoConfigurar(_: EstadoConfiguracao, fd: FormData): Promi
         modo,
         pagina: modo === "PAGINA" ? {
           titulo: texto(fd, "p_titulo"), subtitulo: texto(fd, "p_subtitulo"), subtitulo_url: texto(fd, "p_subtitulo_url"),
-          rodape: texto(fd, "p_rodape"), cor_fundo: texto(fd, "p_cor_fundo"), cor_destaque: texto(fd, "p_cor_destaque"),
+          rodape: texto(fd, "p_rodape"), cor_fundo: texto(fd, "p_cor_fundo"), cor_destaque: texto(fd, "p_cor_destaque"), fundo_opacidade: texto(fd, "p_fundo_opacidade"),
           links: rotulos.slice(0, 50).map((rotulo, i) => ({ rotulo, url: urls[i] ?? "", icone: icones[i] ?? "link" })),
         } : undefined,
         confirmarReassociacao: fd.get("confirmarReassociacao") === "on",

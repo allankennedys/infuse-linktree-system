@@ -8,6 +8,8 @@ type Link = { rotulo: string; url: string; icone: string };
 export type DadosDaPagina = {
   titulo: string; subtitulo: string; subtitulo_url: string; rodape: string;
   cor_fundo: string; cor_destaque: string; links: Link[];
+  /** Opacidade da imagem de fundo, "0" a "100". */
+  fundo_opacidade: string;
 };
 export type PropsDaConfiguracao = {
   id: number; urlPublica: string | null; modo: "LINK" | "PAGINA";
@@ -17,8 +19,8 @@ export type PropsDaConfiguracao = {
   acao?: typeof acaoConfigurar; areaDoCliente?: boolean;
   /** Logo e fundo já enviados, para a prévia ao vivo da página de links. */
   imagensDaPrevia?: { logo?: string; fundo?: string };
-  /** Avisa qual modo está selecionado no formulário, mesmo antes de salvar. */
-  aoMudarModo?: (modo: "LINK" | "PAGINA") => void;
+  /** Campos de logo e imagem de fundo, mostrados dentro do editor da página, antes dos botões. */
+  camposDeImagem?: React.ReactNode;
 };
 
 /** Host de um endereço https completo, para procurar o favicon; "" enquanto o endereço não está pronto. */
@@ -85,8 +87,6 @@ export function FormConfiguracao(props: PropsDaConfiguracao) {
   }, [hostsDeLink, favicons]);
   // Em tela estreita a prévia não cabe ao lado: abre por cima, num botão fixo.
   const [previaAberta, setPreviaAberta] = useState(false);
-  const { aoMudarModo } = props;
-  useEffect(() => aoMudarModo?.(modo), [aoMudarModo, modo]);
   const previa = hostDigitado(destino);
   // A confirmação vale só para o que foi enviado: se o admin editar algo depois do
   // alerta, o servidor avalia de novo e mostra os alertas certos.
@@ -176,6 +176,16 @@ export function FormConfiguracao(props: PropsDaConfiguracao) {
             </label>
           </div>
 
+          {props.camposDeImagem}
+          {props.imagensDaPrevia?.fundo ? (
+            <label className="campo">
+              <span>Opacidade da imagem de fundo: {pagina.fundo_opacidade}%</span>
+              <input type="range" name="p_fundo_opacidade" min={0} max={100} step={5} {...campo("fundo_opacidade")} />
+            </label>
+          ) : (
+            <input type="hidden" name="p_fundo_opacidade" value={pagina.fundo_opacidade} />
+          )}
+
           <div className="pilha">
             <strong>Botões</strong>
             {pagina.links.map((l, i) => (
@@ -217,6 +227,7 @@ export function FormConfiguracao(props: PropsDaConfiguracao) {
               titulo: pagina.titulo.trim() || "Nome", subtitulo: pagina.subtitulo.trim() || null,
               subtitulo_url: pagina.subtitulo_url.trim() || null, rodape: pagina.rodape.trim() || null,
               cor_fundo: pagina.cor_fundo.toLowerCase(), cor_destaque: pagina.cor_destaque.toLowerCase(),
+              fundo_opacidade: Number(pagina.fundo_opacidade),
               links: pagina.links.map((l) => ({ ...l, url: l.url.trim() })),
             }}
           />

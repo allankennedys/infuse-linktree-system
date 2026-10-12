@@ -39,7 +39,7 @@ export async function acaoConfigurarCliente(_: EstadoConfiguracao, fd: FormData)
         destino: texto(fd, "destino"), cliente: "", notas: "", modo,
         pagina: modo === "PAGINA" ? {
           titulo: texto(fd, "p_titulo"), subtitulo: texto(fd, "p_subtitulo"), subtitulo_url: texto(fd, "p_subtitulo_url"),
-          rodape: texto(fd, "p_rodape"), cor_fundo: texto(fd, "p_cor_fundo"), cor_destaque: texto(fd, "p_cor_destaque"),
+          rodape: texto(fd, "p_rodape"), cor_fundo: texto(fd, "p_cor_fundo"), cor_destaque: texto(fd, "p_cor_destaque"), fundo_opacidade: texto(fd, "p_fundo_opacidade"),
           links: rotulos.slice(0, 50).map((rotulo, i) => ({ rotulo, url: urls[i] ?? "", icone: icones[i] ?? "link" })),
         } : undefined,
         confirmarAvisos: fd.get("confirmarAvisos") === "on",

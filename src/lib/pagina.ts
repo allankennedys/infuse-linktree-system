@@ -3,17 +3,21 @@ import { validarDestino, type OpcoesDestino } from "./destino";
 import { ehIcone } from "./icones";
 
 export const LIMITES_PAGINA = { links: 12, titulo: 60, subtitulo: 60, rodape: 80, rotulo: 40 };
-export const PADRAO_PAGINA = { cor_fundo: "#030305", cor_destaque: "#2f7bff" };
+export const PADRAO_PAGINA = { cor_fundo: "#030305", cor_destaque: "#2f7bff", fundo_opacidade: 100 };
 
 export type LinkDaPagina = { rotulo: string; url: string; icone: string };
 export type Pagina = {
   titulo: string; subtitulo: string | null; subtitulo_url: string | null; rodape: string | null;
   cor_fundo: string; cor_destaque: string; links: LinkDaPagina[];
+  /** Opacidade da imagem de fundo, de 0 a 100 (%). Ausente = 100. */
+  fundo_opacidade?: number;
 };
 /** O que chega do formulário, ainda sem validar. */
 export type EntradaPagina = {
   titulo: string; subtitulo: string; subtitulo_url: string; rodape: string;
   cor_fundo: string; cor_destaque: string; links: LinkDaPagina[];
+  /** Vazio ou ausente = 100. */
+  fundo_opacidade?: string;
 };
 
 const COR = /^#[0-9a-f]{6}$/;
@@ -32,6 +36,11 @@ export function validarPagina(e: EntradaPagina, op: OpcoesDestino = {}): { ok: t
   const cor_fundo = e.cor_fundo.trim().toLowerCase() || PADRAO_PAGINA.cor_fundo;
   const cor_destaque = e.cor_destaque.trim().toLowerCase() || PADRAO_PAGINA.cor_destaque;
   if (!COR.test(cor_fundo) || !COR.test(cor_destaque)) return { ok: false, erro: "Cor inválida. Use o formato #rrggbb." };
+  const opacidade = (e.fundo_opacidade ?? "").trim();
+  const fundo_opacidade = opacidade ? Number(opacidade) : PADRAO_PAGINA.fundo_opacidade;
+  if (!Number.isInteger(fundo_opacidade) || fundo_opacidade < 0 || fundo_opacidade > 100) {
+    return { ok: false, erro: "Opacidade da imagem de fundo: use um número de 0 a 100." };
+  }
 
   let subtitulo_url: string | null = null;
   if (e.subtitulo_url.trim()) {
@@ -54,12 +63,13 @@ export function validarPagina(e: EntradaPagina, op: OpcoesDestino = {}): { ok: t
     if (!v.ok) return { ok: false, erro: `Link ${i + 1} (${rotulo}): ${v.erro}` };
     links.push({ rotulo, url: v.url, icone: ehIcone(l.icone) ? l.icone : "link" });
   }
-  return { ok: true, pagina: { titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque, links } };
+  return { ok: true, pagina: { titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque, fundo_opacidade, links } };
 }
 
 export async function obterPagina(db: Db, codigoId: number): Promise<Pagina | null> {
   const p = await db.query<Omit<Pagina, "links">>(
-    "select titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque from paginas where codigo_id = $1", [codigoId]);
+    "select titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque, fundo_opacidade from paginas where codigo_id = $1",
+    [codigoId]);
   if (!p.rows[0]) return null;
   const links = await db.query<LinkDaPagina>(
     "select rotulo, url, icone from pagina_links where codigo_id = $1 order by posicao", [codigoId]);
@@ -68,12 +78,13 @@ export async function obterPagina(db: Db, codigoId: number): Promise<Pagina | nu
 
 export async function salvarPagina(db: Db, codigoId: number, p: Pagina): Promise<void> {
   await db.query(
-    `insert into paginas (codigo_id, titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque)
-     values ($1, $2, $3, $4, $5, $6, $7)
+    `insert into paginas (codigo_id, titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque, fundo_opacidade)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
      on conflict (codigo_id) do update set titulo = excluded.titulo, subtitulo = excluded.subtitulo,
        subtitulo_url = excluded.subtitulo_url, rodape = excluded.rodape, cor_fundo = excluded.cor_fundo,
-       cor_destaque = excluded.cor_destaque, atualizado_em = now()`,
-    [codigoId, p.titulo, p.subtitulo, p.subtitulo_url, p.rodape, p.cor_fundo, p.cor_destaque]);
+       cor_destaque = excluded.cor_destaque, fundo_opacidade = excluded.fundo_opacidade, atualizado_em = now()`,
+    [codigoId, p.titulo, p.subtitulo, p.subtitulo_url, p.rodape, p.cor_fundo, p.cor_destaque,
+      p.fundo_opacidade ?? PADRAO_PAGINA.fundo_opacidade]);
   await db.query("delete from pagina_links where codigo_id = $1", [codigoId]);
   for (const [i, l] of p.links.entries()) {
     await db.query("insert into pagina_links (codigo_id, posicao, rotulo, url, icone) values ($1, $2, $3, $4, $5)",

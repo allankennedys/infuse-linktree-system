@@ -45,7 +45,7 @@ export default async function MeuCodigo({ params }: { params: Promise<{ id: stri
       </section>
 
       <SecoesDeConteudo
-        titulo="Conteúdo" temPagina={!!pagina}
+        titulo="Conteúdo"
         configuracao={{
           id: codigo.id, urlPublica: publica, modo: codigo.modo, destino: codigo.destino ?? "", cliente: "", notas: "",
           pagina: {
@@ -53,6 +53,7 @@ export default async function MeuCodigo({ params }: { params: Promise<{ id: stri
             subtitulo_url: pagina?.subtitulo_url ?? "", rodape: pagina?.rodape ?? "",
             cor_fundo: pagina?.cor_fundo ?? PADRAO_PAGINA.cor_fundo,
             cor_destaque: pagina?.cor_destaque ?? PADRAO_PAGINA.cor_destaque,
+              fundo_opacidade: String(pagina?.fundo_opacidade ?? PADRAO_PAGINA.fundo_opacidade),
             links: pagina?.links ?? [{ rotulo: "", url: "", icone: "link" }],
           },
           icones: Object.entries(ICONES).map(([chave, i]) => ({ chave, rotulo: i.rotulo })),

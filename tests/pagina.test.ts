@@ -125,6 +125,17 @@ describe("HTML público", () => {
     // As cores padrão continuam como eram.
     expect(temaDaPagina("#030305", "#2f7bff")).toMatchObject({ texto: "#f5f7fa", icone: "#2f7bff" });
   });
+  it("opacidade da imagem de fundo: validada de 0 a 100, padrão 100, aplicada só quando há imagem e é menor que 100", () => {
+    const entrada = (fundo_opacidade?: string) => validarPagina(pagina({ fundo_opacidade }));
+    expect(entrada()).toMatchObject({ ok: true, pagina: { fundo_opacidade: 100 } });
+    expect(entrada("35")).toMatchObject({ ok: true, pagina: { fundo_opacidade: 35 } });
+    for (const ruim of ["-1", "101", "abc", "12.5"]) expect(entrada(ruim).ok).toBe(false);
+
+    const base = { titulo: "T", subtitulo: null, subtitulo_url: null, rodape: null, cor_fundo: "#102030", cor_destaque: "#2f7bff", links: [] };
+    expect(renderizarPagina({ ...base, fundo_opacidade: 35 }, { fundo: "/x.jpg" })).toContain("display:block;opacity:0.35}");
+    expect(renderizarPagina({ ...base, fundo_opacidade: 100 }, { fundo: "/x.jpg" })).toContain("display:block}");
+    expect(renderizarPagina(base, { fundo: "/x.jpg" })).toContain("display:block}");
+  });
   it("usa texto escuro em fundo claro e claro em fundo escuro", () => {
     const base = { titulo: "T", subtitulo: null, subtitulo_url: null, rodape: null, cor_destaque: "#2f7bff", links: [] };
     expect(renderizarPagina({ ...base, cor_fundo: "#ffffff" })).toContain("color:#12151f");
@@ -218,6 +229,13 @@ describe("opção B no mesmo QR", () => {
     const h = await historicoDoCodigo(db, id);
     expect(h.map((e) => e.acao)).toEqual(expect.arrayContaining(["MODO_ALTERADO", "PAGINA_ALTERADA"]));
     expect(JSON.stringify(h)).not.toMatch(/Padaria do Zé|Volte sempre|cardapio"/);
+  });
+
+  it("a opacidade escolhida é salva e volta na leitura", async () => {
+    await salvarPaginaNoCodigo(pagina({ fundo_opacidade: "40" }));
+    expect((await obterPagina(db, id))!.fundo_opacidade).toBe(40);
+    await salvarPaginaNoCodigo(pagina());
+    expect((await obterPagina(db, id))!.fundo_opacidade).toBe(100);
   });
 
   it("remover dados do cliente apaga página, links e imagens", async () => {

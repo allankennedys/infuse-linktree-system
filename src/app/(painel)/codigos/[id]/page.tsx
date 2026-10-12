@@ -110,7 +110,7 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
 
       {codigo.status !== "ARQUIVADO" && (
         <SecoesDeConteudo
-          titulo="Configuração" temPagina={!!pagina}
+          titulo="Configuração"
           aviso={codigo.status === "DESATIVADO" && (
             <p className="aviso atencao">Código desativado. Dá para editar, mas ele só volta a funcionar depois de reativado.</p>
           )}
@@ -122,6 +122,7 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
               subtitulo_url: pagina?.subtitulo_url ?? "", rodape: pagina?.rodape ?? "",
               cor_fundo: pagina?.cor_fundo ?? PADRAO_PAGINA.cor_fundo,
               cor_destaque: pagina?.cor_destaque ?? PADRAO_PAGINA.cor_destaque,
+              fundo_opacidade: String(pagina?.fundo_opacidade ?? PADRAO_PAGINA.fundo_opacidade),
               links: pagina?.links ?? [{ rotulo: "", url: "", icone: "link" }],
             },
             icones: Object.entries(ICONES).map(([chave, i]) => ({ chave, rotulo: i.rotulo })),

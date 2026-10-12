@@ -98,6 +98,10 @@ export function renderizarPagina(p: Pagina, imagens: ImagensDaPagina = {}, extra
   const fundo = cor(p.cor_fundo, "#030305");
   const destaque = cor(p.cor_destaque, "#2f7bff");
   const t = temaDaPagina(fundo, destaque, !!imagens.fundo);
+  // Abaixo de 100%, a imagem esmaece sobre a cor de fundo (se for escura) ou sobre preto; a película escura continua por cima.
+  // Cor clara por trás de uma imagem esmaecida deixaria o texto (sempre claro, com imagem) sem contraste.
+  const atrasDaImagem = !imagens.fundo || contraste("#ffffff", fundo) >= contraste("#000000", fundo) ? fundo : "#030305";
+  const opacidade = Number.isInteger(p.fundo_opacidade) ? Math.min(100, Math.max(0, p.fundo_opacidade!)) : 100;
   const seguro = (url: string | null) => (url && hostDe(url) && /^https:\/\//.test(url) ? url : null);
 
   const links = p.links
@@ -154,8 +158,8 @@ export function renderizarPagina(p: Pagina, imagens: ImagensDaPagina = {}, extra
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{background:${fundo};color:${t.texto};font-family:Kanit,system-ui,sans-serif;font-weight:400;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;overflow-x:hidden}
-.fundo{position:fixed;inset:0;z-index:0;pointer-events:none;background:${fundo}}
-.fundo img{width:100%;height:100%;object-fit:cover;display:block}
+.fundo{position:fixed;inset:0;z-index:0;pointer-events:none;background:${atrasDaImagem}}
+.fundo img{width:100%;height:100%;object-fit:cover;display:block${opacidade < 100 ? `;opacity:${opacidade / 100}` : ""}}
 .fundo.com-imagem::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,3,5,.72) 0%,rgba(3,3,5,.55) 45%,rgba(3,3,5,.88) 100%)}
 .fundo.azulado img{opacity:.45;filter:brightness(.62) contrast(1.12) saturate(1.05) hue-rotate(-65deg)}
 .fundo.azulado::after{background:radial-gradient(55% 30% at 50% 16%,${destaque}2e,${destaque}00 70%),linear-gradient(180deg,rgba(3,3,5,.82) 0%,rgba(3,3,5,.62) 45%,rgba(3,3,5,.93) 100%)}
