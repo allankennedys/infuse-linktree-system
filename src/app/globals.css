@@ -173,6 +173,9 @@ input[type="range"] { width: 100%; max-width: 320px; accent-color: var(--azul); 
 input[type="color"] { width: 64px; height: 38px; padding: 2px; border: 1px solid var(--linha-forte); border-radius: 6px; background: var(--campo); cursor: pointer; }
 .linha-link { display: grid; grid-template-columns: 170px 1fr 1.4fr auto; gap: 8px; align-items: center; }
 .linha-link > * { min-width: 0; }
+.campos-pix { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; }
+.campos-pix > * { min-width: 0; }
+.campos-pix small { grid-column: 1 / -1; }
 .linha-link .botao.pequeno { min-height: 38px; min-width: 34px; padding: 0 8px; }
 .imagem-da-pagina { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; justify-items: start; }
 .imagem-da-pagina p { margin: 0; }
@@ -274,6 +277,7 @@ input[type="file"] { color: var(--suave); font: inherit; font-size: 0.85rem; max
   .linha-link > :nth-child(2), .linha-link > :nth-child(3),
   .com-previa .linha-link > :nth-child(3) { grid-column: 1 / -1; grid-row: auto; }
   .linha-link > :nth-child(4) { grid-column: 2; grid-row: 1; flex-wrap: nowrap; }
+  .campos-pix { grid-template-columns: minmax(0, 1fr); }
   .editor-pagina { padding-left: 0; border-left: 0; }
   .imagem-da-pagina { justify-items: stretch; }
   .imagem-da-pagina .linha-form { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }

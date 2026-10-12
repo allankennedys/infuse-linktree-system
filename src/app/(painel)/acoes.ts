@@ -10,6 +10,7 @@ import { garantirFavicons, hostsComIconeDeLink } from "@/lib/favicon";
 import { inteiroPositivo } from "@/lib/formato";
 import { definirGerente, removerGerente } from "@/lib/gerentes";
 import { trocarImagem } from "@/lib/imagem-acao";
+import { linksDoFormulario } from "@/lib/pagina";
 import { gerarLote } from "@/lib/lotes";
 
 // Toda action começa por exigirAdmin(): actions são endpoints POST públicos,
@@ -51,8 +52,7 @@ export async function acaoConfigurar(_: EstadoConfiguracao, fd: FormData): Promi
   const id = inteiroPositivo(texto(fd, "id"));
   if (!id) return { tipo: "erro", erro: "Código inválido." };
   const modo: Modo = texto(fd, "modo") === "PAGINA" ? "PAGINA" : "LINK";
-  const lista = (campo: string) => fd.getAll(campo).map(String);
-  const [rotulos, urls, icones] = [lista("link_rotulo"), lista("link_url"), lista("link_icone")];
+  const links = linksDoFormulario(fd);
   try {
     const r = await configurarCodigo(
       getDb(), id,
@@ -62,7 +62,7 @@ export async function acaoConfigurar(_: EstadoConfiguracao, fd: FormData): Promi
         pagina: modo === "PAGINA" ? {
           titulo: texto(fd, "p_titulo"), subtitulo: texto(fd, "p_subtitulo"), subtitulo_url: texto(fd, "p_subtitulo_url"),
           rodape: texto(fd, "p_rodape"), cor_fundo: texto(fd, "p_cor_fundo"), cor_destaque: texto(fd, "p_cor_destaque"), fundo_opacidade: texto(fd, "p_fundo_opacidade"),
-          links: rotulos.slice(0, 50).map((rotulo, i) => ({ rotulo, url: urls[i] ?? "", icone: icones[i] ?? "link" })),
+          links,
         } : undefined,
         confirmarReassociacao: fd.get("confirmarReassociacao") === "on",
         confirmarAvisos: fd.get("confirmarAvisos") === "on",
@@ -72,7 +72,7 @@ export async function acaoConfigurar(_: EstadoConfiguracao, fd: FormData): Promi
     if (r.tipo !== "salvo") return r;
     // Guarda o favicon dos botões "Link". Se a busca falhar, a página fica com o ícone genérico.
     if (modo === "PAGINA") {
-      await garantirFavicons(getDb(), hostsComIconeDeLink({ links: urls.map((url, i) => ({ url, rotulo: "", icone: icones[i] ?? "link" })) }))
+      await garantirFavicons(getDb(), hostsComIconeDeLink({ links }))
         .catch(() => {});
     }
     revalidatePath("/", "layout");

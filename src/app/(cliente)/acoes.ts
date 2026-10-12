@@ -11,6 +11,7 @@ import { garantirFavicons, hostsComIconeDeLink } from "@/lib/favicon";
 import { inteiroPositivo } from "@/lib/formato";
 import { trocarSenhaDoGerente } from "@/lib/gerentes";
 import { trocarImagem } from "@/lib/imagem-acao";
+import { linksDoFormulario } from "@/lib/pagina";
 import { chaveAnonima, consumirLimite, ipDe } from "@/lib/limite";
 
 // Toda action começa por exigirGerente(), e a regra "o código é deste gerente" é conferida
@@ -29,8 +30,7 @@ export async function acaoConfigurarCliente(_: EstadoConfiguracao, fd: FormData)
   const id = inteiroPositivo(texto(fd, "id"));
   if (!id) return { tipo: "erro", erro: "Código inválido." };
   const modo: Modo = texto(fd, "modo") === "PAGINA" ? "PAGINA" : "LINK";
-  const lista = (campo: string) => fd.getAll(campo).map(String);
-  const [rotulos, urls, icones] = [lista("link_rotulo"), lista("link_url"), lista("link_icone")];
+  const links = linksDoFormulario(fd);
   try {
     const r = await configurarCodigo(
       getDb(), id,
@@ -40,7 +40,7 @@ export async function acaoConfigurarCliente(_: EstadoConfiguracao, fd: FormData)
         pagina: modo === "PAGINA" ? {
           titulo: texto(fd, "p_titulo"), subtitulo: texto(fd, "p_subtitulo"), subtitulo_url: texto(fd, "p_subtitulo_url"),
           rodape: texto(fd, "p_rodape"), cor_fundo: texto(fd, "p_cor_fundo"), cor_destaque: texto(fd, "p_cor_destaque"), fundo_opacidade: texto(fd, "p_fundo_opacidade"),
-          links: rotulos.slice(0, 50).map((rotulo, i) => ({ rotulo, url: urls[i] ?? "", icone: icones[i] ?? "link" })),
+          links,
         } : undefined,
         confirmarAvisos: fd.get("confirmarAvisos") === "on",
       },
@@ -49,7 +49,7 @@ export async function acaoConfigurarCliente(_: EstadoConfiguracao, fd: FormData)
     if (r.tipo !== "salvo") return r;
     // Guarda o favicon dos botões "Link". Se a busca falhar, a página fica com o ícone genérico.
     if (modo === "PAGINA") {
-      await garantirFavicons(getDb(), hostsComIconeDeLink({ links: urls.map((url, i) => ({ url, rotulo: "", icone: icones[i] ?? "link" })) }))
+      await garantirFavicons(getDb(), hostsComIconeDeLink({ links }))
         .catch(() => {});
     }
     revalidatePath("/", "layout");

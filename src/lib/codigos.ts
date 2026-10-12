@@ -302,7 +302,7 @@ export async function resolverToken(db: Db, token: string, op: OpcoesDestino = {
     const salva = await obterPagina(db, c.id);
     if (!salva) return null;
     // Links que deixaram de passar na política atual somem da página.
-    const pagina = { ...salva, links: salva.links.filter((l) => validarDestino(l.url, op).ok) };
+    const pagina = { ...salva, links: salva.links.filter((l) => l.pix || validarDestino(l.url, op).ok) };
     if (pagina.links.length === 0) return null;
     if (pagina.subtitulo_url && !validarDestino(pagina.subtitulo_url, op).ok) pagina.subtitulo_url = null;
     return { tipo: "pagina", id: c.id, pagina, imagens: await versoesDasImagens(db, c.id) };

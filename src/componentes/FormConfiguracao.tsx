@@ -2,9 +2,24 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { acaoConfigurar, type EstadoConfiguracao } from "@/app/(painel)/acoes";
+import { exibirChavePix, lerChavePix, validarPix, type ChavePix, type TipoDeChavePix } from "@/lib/pix";
 import { PreviaDaPagina } from "./PreviaDaPagina";
 
-type Link = { rotulo: string; url: string; icone: string };
+/** Com o ícone "pix" o botão é Pix: `pix` guarda o que está digitado (chave, quem recebe e cidade). */
+type Link = { rotulo: string; url: string; icone: string; pix?: ChavePix };
+const PIX_VAZIO: ChavePix = { chave: "", nome: "", cidade: "" };
+const TIPOS_DE_CHAVE: Record<TipoDeChavePix, string> = {
+  celular: "celular", cpf: "CPF", cnpj: "CNPJ", email: "e-mail", aleatoria: "chave aleatória",
+};
+
+/** O que o painel entendeu da chave digitada, para o admin conferir antes de salvar. */
+function dicaDaChave(valor: string): { texto: string; problema?: boolean } {
+  if (!valor.trim()) return { texto: "CPF, CNPJ, celular com DDD, e-mail ou chave aleatória." };
+  const lida = lerChavePix(valor);
+  return lida
+    ? { texto: `Chave reconhecida: ${TIPOS_DE_CHAVE[lida.tipo]} ${exibirChavePix(lida.chave)}` }
+    : { texto: "Ainda não é uma chave Pix.", problema: true };
+}
 export type DadosDaPagina = {
   titulo: string; subtitulo: string; subtitulo_url: string; rodape: string;
   cor_fundo: string; cor_destaque: string; links: Link[];
@@ -99,6 +114,9 @@ export function FormConfiguracao(props: PropsDaConfiguracao) {
   });
   const mudarLink = (i: number, parte: Partial<Link>) =>
     setPagina({ ...pagina, links: pagina.links.map((l, k) => (k === i ? { ...l, ...parte } : l)) });
+  const mudarPix = (i: number, parte: Partial<ChavePix>) =>
+    mudarLink(i, { pix: { ...PIX_VAZIO, ...pagina.links[i]!.pix, ...parte } });
+  const jaTemPix = pagina.links.some((l) => l.icone === "pix");
   const mover = (i: number, passo: number) => {
     const links = [...pagina.links];
     const [item] = links.splice(i, 1);
@@ -188,23 +206,52 @@ export function FormConfiguracao(props: PropsDaConfiguracao) {
 
           <div className="pilha">
             <strong>Botões</strong>
-            {pagina.links.map((l, i) => (
+            {pagina.links.map((l, i) => {
+              const ehPix = l.icone === "pix";
+              const pix = l.pix ?? PIX_VAZIO;
+              const dica = dicaDaChave(pix.chave);
+              return (
               <div className="linha-link" key={i}>
-                <select name="link_icone" value={l.icone} onChange={(e) => mudarLink(i, { icone: e.target.value })} aria-label={`Ícone do botão ${i + 1}`}>
-                  {props.icones.map((ic) => <option key={ic.chave} value={ic.chave}>{ic.rotulo}</option>)}
+                <select name="link_icone" value={l.icone} aria-label={`Ícone do botão ${i + 1}`}
+                  onChange={(e) => mudarLink(i, e.target.value === "pix" && !l.rotulo.trim() ? { icone: "pix", rotulo: "Pagar via Pix" } : { icone: e.target.value })}>
+                  {props.icones.map((ic) => (
+                    <option key={ic.chave} value={ic.chave} disabled={ic.chave === "pix" && jaTemPix && !ehPix}>{ic.rotulo}</option>
+                  ))}
                 </select>
                 <input type="text" name="link_rotulo" value={l.rotulo} onChange={(e) => mudarLink(i, { rotulo: e.target.value })}
                   placeholder="Texto do botão" maxLength={40} aria-label={`Texto do botão ${i + 1}`} autoComplete="off" />
-                <input type="url" name="link_url" value={l.url} onChange={(e) => mudarLink(i, { url: e.target.value })}
-                  placeholder="https://…" maxLength={2048} aria-label={`Endereço do botão ${i + 1}`} autoComplete="off" spellCheck={false} />
+                {ehPix ? (
+                  <div className="campos-pix">
+                    <input type="hidden" name="link_url" value="" />
+                    <input type="text" name="link_pix_chave" value={pix.chave} onChange={(e) => mudarPix(i, { chave: e.target.value })}
+                      placeholder="Chave Pix" maxLength={77} aria-label={`Chave Pix do botão ${i + 1}`} autoComplete="off" spellCheck={false} />
+                    <input type="text" name="link_pix_nome" value={pix.nome} onChange={(e) => mudarPix(i, { nome: e.target.value })}
+                      placeholder="Nome de quem recebe" maxLength={60} aria-label={`Nome de quem recebe o Pix do botão ${i + 1}`} autoComplete="off" />
+                    <input type="text" name="link_pix_cidade" value={pix.cidade} onChange={(e) => mudarPix(i, { cidade: e.target.value })}
+                      placeholder="Cidade" maxLength={40} aria-label={`Cidade de quem recebe o Pix do botão ${i + 1}`} autoComplete="off" />
+                    <small className={dica.problema ? "texto-erro" : "suave"}>{dica.texto}</small>
+                  </div>
+                ) : (
+                  <input type="url" name="link_url" value={l.url} onChange={(e) => mudarLink(i, { url: e.target.value })}
+                    placeholder="https://…" maxLength={2048} aria-label={`Endereço do botão ${i + 1}`} autoComplete="off" spellCheck={false} />
+                )}
                 <span className="acoes-linha">
+                  {/* Os campos se repetem em todo botão, para o servidor casar cada um pela posição. */}
+                  {!ehPix && (
+                    <>
+                      <input type="hidden" name="link_pix_chave" value="" />
+                      <input type="hidden" name="link_pix_nome" value="" />
+                      <input type="hidden" name="link_pix_cidade" value="" />
+                    </>
+                  )}
                   <button type="button" className="botao pequeno" onClick={() => mover(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
                   <button type="button" className="botao pequeno" onClick={() => mover(i, 1)} disabled={i === pagina.links.length - 1} aria-label="Descer">↓</button>
                   <button type="button" className="botao pequeno perigo" aria-label="Remover botão"
                     onClick={() => setPagina({ ...pagina, links: pagina.links.filter((_, k) => k !== i) })}>✕</button>
                 </span>
               </div>
-            ))}
+              );
+            })}
             <div>
               <button type="button" className="botao pequeno" disabled={pagina.links.length >= props.maximoDeLinks}
                 onClick={() => setPagina({ ...pagina, links: [...pagina.links, { rotulo: "", url: "", icone: "link" }] })}>
@@ -212,7 +259,7 @@ export function FormConfiguracao(props: PropsDaConfiguracao) {
               </button>
             </div>
             <small className="suave">
-              Só endereços https://. WhatsApp: https://wa.me/55DDDNUMERO.
+              Só endereços https://. WhatsApp: https://wa.me/55DDDNUMERO. Para receber por Pix, escolha o ícone Pix: o botão mostra o QR Code e a chave.
             </small>
           </div>
         </div>
@@ -228,7 +275,11 @@ export function FormConfiguracao(props: PropsDaConfiguracao) {
               subtitulo_url: pagina.subtitulo_url.trim() || null, rodape: pagina.rodape.trim() || null,
               cor_fundo: pagina.cor_fundo.toLowerCase(), cor_destaque: pagina.cor_destaque.toLowerCase(),
               fundo_opacidade: Number(pagina.fundo_opacidade),
-              links: pagina.links.map((l) => ({ ...l, url: l.url.trim() })),
+              // Botão Pix só abre o QR na prévia quando a chave e os dados de quem recebe já valem.
+              links: pagina.links.map(({ pix, ...l }) => {
+                const v = l.icone === "pix" ? validarPix(pix ?? PIX_VAZIO) : null;
+                return v?.ok ? { ...l, url: "", pix: v.pix } : { ...l, url: l.icone === "pix" ? "" : l.url.trim() };
+              }),
             }}
           />
         </aside>

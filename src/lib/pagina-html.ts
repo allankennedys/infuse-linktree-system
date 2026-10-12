@@ -1,6 +1,8 @@
 // Este módulo também roda no navegador (prévia ao vivo do formulário): nada de APIs do Node aqui.
 import { ICONES } from "./icones";
 import type { Pagina } from "./pagina";
+import { exibirChavePix, payloadPix } from "./pix";
+import { gerarSvg } from "./qr-svg";
 
 function hostDe(url: string): string | null {
   try {
@@ -63,21 +65,14 @@ export function temaDaPagina(fundo: string, destaque: string, comImagem = false)
 
 const SETA = '<svg class="seta" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-const ICONE_PIX = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#32BCAD" d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156"/></svg>';
-
 // Só os botões de copiar dependem de script; o modal abre e fecha com :target.
 const SCRIPT_COPIAR = `(function(){var t=document.getElementById("toast"),r;function avisar(m){t.textContent=m;t.classList.add("on");clearTimeout(r);r=setTimeout(function(){t.classList.remove("on")},2200)}function copiar(x,m){function reserva(){var e=document.createElement("textarea");e.value=x;e.style.position="fixed";e.style.opacity="0";document.body.appendChild(e);e.select();document.execCommand("copy");e.remove();avisar(m)}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(x).then(function(){avisar(m)},reserva);else reserva()}document.querySelectorAll("[data-copiar]").forEach(function(b){b.hidden=false;b.addEventListener("click",function(){copiar(b.getAttribute("data-copiar"),b.getAttribute("data-aviso"))})})})();`;
 
 export type ImagensDaPagina = { logo?: string; fundo?: string };
 
-/** Pix já pronto para exibir: `payload` é o copia e cola e `qrSvg` o QR dele em SVG. */
-export type PixDaPagina = { chave: string; exibir: string; payload: string; qrSvg: string };
-
 export type ExtrasDaPagina = {
   /** Nº de inventário, mostrado no fim da página enquanto o código ainda não foi configurado. */
   codigo?: string;
-  /** Botão "Pagar via Pix" antes dos links, com QR e copia e cola. */
-  pix?: PixDaPagina;
   /** Escurece a imagem de fundo e puxa o tom para o azul, como no infuse-links. */
   fundoAzulado?: boolean;
   /** Favicon guardado de cada host (host → endereço da imagem). Vale para os botões com o ícone "Link". */
@@ -89,11 +84,14 @@ export type ExtrasDaPagina = {
 /**
  * HTML completo da página de links, no visual do infuse-links. Sem recursos de terceiros
  * e sem JavaScript, exceto os botões de copiar do Pix. Todo texto vindo do banco é escapado;
- * cores e URLs já foram validadas na gravação e são conferidas de novo aqui. Os `extras`
- * só são usados na página da própria Infuse.
+ * cores e URLs já foram validadas na gravação e são conferidas de novo aqui.
  */
 export function renderizarPagina(p: Pagina, imagens: ImagensDaPagina = {}, extras: ExtrasDaPagina = {}): string {
-  const { codigo, pix } = extras;
+  const { codigo } = extras;
+  // O botão Pix abre um painel com o QR do copia e cola, gerado aqui a partir da chave.
+  const chavePix = p.links.find((l) => l.pix)?.pix;
+  const payload = chavePix ? payloadPix(chavePix) : "";
+  const pix = chavePix && { chave: chavePix.chave, exibir: exibirChavePix(chavePix.chave), payload, qrSvg: gerarSvg(payload) };
   const cor = (v: string, padrao: string) => (/^#[0-9a-f]{6}$/.test(v) ? v : padrao);
   const fundo = cor(p.cor_fundo, "#030305");
   const destaque = cor(p.cor_destaque, "#2f7bff");
@@ -105,20 +103,18 @@ export function renderizarPagina(p: Pagina, imagens: ImagensDaPagina = {}, extra
   const seguro = (url: string | null) => (url && hostDe(url) && /^https:\/\//.test(url) ? url : null);
 
   const links = p.links
-    .filter((l) => seguro(l.url) || (extras.previa && l.rotulo.trim()))
+    .filter((l) => l.pix || seguro(l.url) || (extras.previa && l.rotulo.trim()))
     .map((l) => {
       const icone = ICONES[l.icone] ?? ICONES.link!;
       const favicon = l.icone === "link" ? extras.favicons?.[hostDe(l.url)?.toLowerCase() ?? ""] : undefined;
       const desenho = favicon ? `<img src="${escapar(favicon)}" alt="" width="36" height="36">` : icone.svg;
       const miolo = `<span class="icone${icone.semFundo ? " sem-fundo" : ""}">${desenho}</span><span class="rotulo">${escapar(l.rotulo)}</span>${SETA}`;
+      if (l.pix) return `<a class="link" href="#pix">${miolo}</a>`;
       return seguro(l.url)
         ? `<a class="link" href="${escapar(l.url)}" target="_blank" rel="noopener noreferrer">${miolo}</a>`
         : `<span class="link">${miolo}</span>`;
     })
     .join("\n      ");
-  const botaoPix = pix
-    ? `<a class="link" href="#pix"><span class="icone">${ICONE_PIX}</span><span class="rotulo">Pagar via Pix</span>${SETA}</a>\n      `
-    : "";
   const modalPix = pix
     ? `
   <div class="modal" id="pix" role="dialog" aria-modal="true" aria-labelledby="pix-titulo">
@@ -220,7 +216,7 @@ ${pix ? `.modal{position:fixed;inset:0;z-index:10;display:none;align-items:flex-
       ${sub}
     </header>
     <nav class="links">
-      ${botaoPix}${links}
+      ${links}
     </nav>
     ${p.rodape ? `<p class="rodape">${escapar(p.rodape)}</p>` : '<p class="rodape"></p>'}
     ${codigo ? `<p class="codigo">${escapar(codigo)}</p>` : ""}

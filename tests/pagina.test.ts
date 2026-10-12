@@ -8,6 +8,7 @@ import {
 } from "@/lib/pagina";
 import { contraste, renderizarPagina, temaDaPagina } from "@/lib/pagina-html";
 import { EXTRAS_INFUSE, IMAGENS_INFUSE, PAGINA_INFUSE } from "@/lib/pagina-infuse";
+import { exibirChavePix, lerChavePix, payloadPix } from "@/lib/pix";
 import { atenderLeitura } from "@/lib/publico";
 import { decodificarRaster, gerarPng, rasterizarQr } from "@/lib/qr";
 import { BASE, criarBanco } from "./apoio";
@@ -96,8 +97,50 @@ describe("HTML público", () => {
     expect(decodificarRaster(rasterizarQr(payload))).toBe(payload);
     expect(html).not.toMatch(/<script[^>]+src=/i);
 
-    const cliente = renderizarPagina(PAGINA_INFUSE, { fundo: "/x.jpg" });
+    const cliente = renderizarPagina({ ...PAGINA_INFUSE, links: PAGINA_INFUSE.links.filter((l) => !l.pix) }, { fundo: "/x.jpg" });
     expect(cliente).not.toMatch(/<script|Pix|azulado"/);
+  });
+  it("botão Pix do cliente: mostra o QR do copia e cola e a chave, na posição escolhida", () => {
+    const v = validarPagina(pagina({ links: [
+      { rotulo: "Cardápio", url: "https://padaria.exemplo.com/cardapio", icone: "cardapio" },
+      { rotulo: "Pague aqui <b>", url: "", icone: "pix", pix_chave: "(75) 98822-4505", pix_nome: "Padaria do Zé", pix_cidade: "Feira de Santana" },
+    ] }));
+    expect(v.ok && v.pagina.links[1]).toEqual({
+      rotulo: "Pague aqui <b>", url: "", icone: "pix", pix: { chave: "+5575988224505", nome: "Padaria do Ze", cidade: "Feira de Santan" },
+    });
+    const html = renderizarPagina(v.ok ? v.pagina : PAGINA_INFUSE);
+    const payload = payloadPix({ chave: "+5575988224505", nome: "Padaria do Ze", cidade: "Feira de Santan" });
+    expect(payload).toContain("5913Padaria do Ze6015Feira de Santan6207");
+    expect(html).toContain('<a class="link" href="#pix">');
+    expect(html).toContain("Pague aqui &lt;b&gt;");
+    expect(html).toContain(`data-copiar="${payload}"`);
+    expect(html).toContain("(75) 98822-4505");
+    expect(html.indexOf("Cardápio")).toBeLessThan(html.indexOf("Pague aqui"));
+    expect(html).not.toMatch(/<script[^>]+src=/i);
+    expect(decodificarRaster(rasterizarQr(payload))).toBe(payload);
+  });
+  it("chave Pix: reconhece o tipo, normaliza e recusa o que não é chave", () => {
+    expect(lerChavePix("529.982.247-25")).toEqual({ chave: "52998224725", tipo: "cpf" });
+    expect(lerChavePix("52998224725")).toEqual({ chave: "52998224725", tipo: "cpf" });
+    expect(lerChavePix("75988224505")).toEqual({ chave: "+5575988224505", tipo: "celular" });
+    expect(lerChavePix("+55 75 98822-4505")).toEqual({ chave: "+5575988224505", tipo: "celular" });
+    expect(lerChavePix("11.222.333/0001-81")).toEqual({ chave: "11222333000181", tipo: "cnpj" });
+    expect(lerChavePix("Contato@Padaria.com.br")).toEqual({ chave: "contato@padaria.com.br", tipo: "email" });
+    expect(lerChavePix("123E4567-e89b-12d3-a456-426655440000")).toEqual({ chave: "123e4567-e89b-12d3-a456-426655440000", tipo: "aleatoria" });
+    for (const ruim of ["", "12345", "11.222.333/0001-82", "111.111.111-11", "a@b", "https://exemplo.com", "+1 555 123 4567"]) {
+      expect(lerChavePix(ruim), ruim).toBeNull();
+    }
+    expect(exibirChavePix("52998224725")).toBe("529.982.247-25");
+    expect(exibirChavePix("11222333000181")).toBe("11.222.333/0001-81");
+
+    const com = (pix: Partial<EntradaPagina["links"][number]>) =>
+      validarPagina(pagina({ links: [{ rotulo: "Pix", url: "", icone: "pix", pix_chave: "52998224725", pix_nome: "Zé", pix_cidade: "São Paulo", ...pix }] }));
+    expect(com({})).toMatchObject({ ok: true, pagina: { links: [{ pix: { nome: "Ze", cidade: "Sao Paulo" } }] } });
+    expect(com({ pix_chave: "12345" })).toMatchObject({ ok: false });
+    expect(com({ pix_nome: " " })).toMatchObject({ ok: false });
+    expect(com({ pix_cidade: "" })).toMatchObject({ ok: false });
+    const dois = { rotulo: "Pix", url: "", icone: "pix", pix_chave: "52998224725", pix_nome: "Ze", pix_cidade: "Sao Paulo" };
+    expect(validarPagina(pagina({ links: [dois, dois] }))).toMatchObject({ ok: false, erro: "Só um botão da página pode ser Pix." });
   });
   it("qualquer cor de fundo e de destaque mantém texto e ícone legíveis", () => {
     const hex = (n: number) => n.toString(16).padStart(2, "0");
@@ -236,6 +279,28 @@ describe("opção B no mesmo QR", () => {
     expect((await obterPagina(db, id))!.fundo_opacidade).toBe(40);
     await salvarPaginaNoCodigo(pagina());
     expect((await obterPagina(db, id))!.fundo_opacidade).toBe(100);
+  });
+
+  it("botão Pix é salvo, volta na leitura e continua na página mesmo sem endereço", async () => {
+    const comPix = pagina({ links: [
+      { rotulo: "Pagar via Pix", url: "", icone: "pix", pix_chave: "529.982.247-25", pix_nome: "Padaria do Zé", pix_cidade: "Salvador" },
+      { rotulo: "WhatsApp", url: "https://wa.me/5511999999999", icone: "conversa" },
+    ] });
+    expect((await salvarPaginaNoCodigo(comPix)).tipo).toBe("salvo");
+    expect((await obterPagina(db, id))!.links).toEqual([
+      { rotulo: "Pagar via Pix", url: "", icone: "pix", pix: { chave: "52998224725", nome: "Padaria do Ze", cidade: "Salvador" } },
+      { rotulo: "WhatsApp", url: "https://wa.me/5511999999999", icone: "conversa" },
+    ]);
+    // Salvar de novo o mesmo conteúdo não conta como edição.
+    const antes = (await historicoDoCodigo(db, id)).length;
+    await salvarPaginaNoCodigo(comPix);
+    expect((await historicoDoCodigo(db, id)).length).toBe(antes);
+    // Mesmo com todos os endereços fora da política, o Pix segura a página no ar.
+    const html = await (await atenderLeitura(db, token, { hostsPermitidos: ["outro.com"] })).text();
+    expect(html).toContain("529.982.247-25");
+    expect(html).toContain(`data-copiar="${payloadPix({ chave: "52998224725", nome: "Padaria do Ze", cidade: "Salvador" })}"`);
+    expect(html).not.toContain("wa.me");
+    await salvarPaginaNoCodigo(pagina());
   });
 
   it("remover dados do cliente apaga página, links e imagens", async () => {

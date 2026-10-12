@@ -1,11 +1,15 @@
 import type { Db } from "./db";
 import { validarDestino, type OpcoesDestino } from "./destino";
 import { ehIcone } from "./icones";
+import { validarPix, type ChavePix } from "./pix";
 
 export const LIMITES_PAGINA = { links: 12, titulo: 60, subtitulo: 60, rodape: 80, rotulo: 40 };
 export const PADRAO_PAGINA = { cor_fundo: "#030305", cor_destaque: "#2f7bff", fundo_opacidade: 100 };
 
-export type LinkDaPagina = { rotulo: string; url: string; icone: string };
+/** Botão Pix (ícone "pix"): `url` fica vazia e `pix` traz a chave; ele abre o QR Code em vez de um endereço. */
+export type LinkDaPagina = { rotulo: string; url: string; icone: string; pix?: ChavePix };
+/** Botão como chega do formulário. Os campos `pix_*` só contam quando o ícone é "pix". */
+export type EntradaLink = { rotulo: string; url: string; icone: string; pix_chave?: string; pix_nome?: string; pix_cidade?: string };
 export type Pagina = {
   titulo: string; subtitulo: string | null; subtitulo_url: string | null; rodape: string | null;
   cor_fundo: string; cor_destaque: string; links: LinkDaPagina[];
@@ -15,7 +19,7 @@ export type Pagina = {
 /** O que chega do formulário, ainda sem validar. */
 export type EntradaPagina = {
   titulo: string; subtitulo: string; subtitulo_url: string; rodape: string;
-  cor_fundo: string; cor_destaque: string; links: LinkDaPagina[];
+  cor_fundo: string; cor_destaque: string; links: EntradaLink[];
   /** Vazio ou ausente = 100. */
   fundo_opacidade?: string;
 };
@@ -51,14 +55,23 @@ export function validarPagina(e: EntradaPagina, op: OpcoesDestino = {}): { ok: t
   }
 
   // Linha totalmente vazia é ignorada (o admin adicionou e não preencheu).
-  const preenchidos = e.links.filter((l) => l.rotulo.trim() || l.url.trim());
+  const ehPix = (l: EntradaLink) => l.icone === "pix";
+  const preenchidos = e.links.filter((l) => l.rotulo.trim() || (ehPix(l) ? l.pix_chave?.trim() : l.url.trim()));
   if (preenchidos.length === 0) return { ok: false, erro: "Adicione pelo menos um link à página." };
   if (preenchidos.length > L.links) return { ok: false, erro: `Máximo de ${L.links} links por página.` };
+  // O QR do Pix abre num painel único da página.
+  if (preenchidos.filter(ehPix).length > 1) return { ok: false, erro: "Só um botão da página pode ser Pix." };
   const links: LinkDaPagina[] = [];
   for (const [i, l] of preenchidos.entries()) {
     const rotulo = l.rotulo.trim();
     if (!rotulo) return { ok: false, erro: `Link ${i + 1}: informe o texto do botão.` };
     if (rotulo.length > L.rotulo) return { ok: false, erro: `Link ${i + 1}: texto com no máximo ${L.rotulo} caracteres.` };
+    if (ehPix(l)) {
+      const v = validarPix({ chave: l.pix_chave ?? "", nome: l.pix_nome ?? "", cidade: l.pix_cidade ?? "" });
+      if (!v.ok) return { ok: false, erro: `Link ${i + 1} (${rotulo}): ${v.erro}` };
+      links.push({ rotulo, url: "", icone: "pix", pix: v.pix });
+      continue;
+    }
     const v = validarDestino(l.url, op);
     if (!v.ok) return { ok: false, erro: `Link ${i + 1} (${rotulo}): ${v.erro}` };
     links.push({ rotulo, url: v.url, icone: ehIcone(l.icone) ? l.icone : "link" });
@@ -71,9 +84,13 @@ export async function obterPagina(db: Db, codigoId: number): Promise<Pagina | nu
     "select titulo, subtitulo, subtitulo_url, rodape, cor_fundo, cor_destaque, fundo_opacidade from paginas where codigo_id = $1",
     [codigoId]);
   if (!p.rows[0]) return null;
-  const links = await db.query<LinkDaPagina>(
-    "select rotulo, url, icone from pagina_links where codigo_id = $1 order by posicao", [codigoId]);
-  return { ...p.rows[0], links: links.rows };
+  const links = await db.query<{ rotulo: string; url: string; icone: string; pix_chave: string | null; pix_nome: string | null; pix_cidade: string | null }>(
+    "select rotulo, url, icone, pix_chave, pix_nome, pix_cidade from pagina_links where codigo_id = $1 order by posicao", [codigoId]);
+  return {
+    ...p.rows[0],
+    links: links.rows.map(({ pix_chave, pix_nome, pix_cidade, ...l }): LinkDaPagina =>
+      pix_chave ? { ...l, pix: { chave: pix_chave, nome: pix_nome ?? "", cidade: pix_cidade ?? "" } } : l),
+  };
 }
 
 export async function salvarPagina(db: Db, codigoId: number, p: Pagina): Promise<void> {
@@ -87,9 +104,21 @@ export async function salvarPagina(db: Db, codigoId: number, p: Pagina): Promise
       p.fundo_opacidade ?? PADRAO_PAGINA.fundo_opacidade]);
   await db.query("delete from pagina_links where codigo_id = $1", [codigoId]);
   for (const [i, l] of p.links.entries()) {
-    await db.query("insert into pagina_links (codigo_id, posicao, rotulo, url, icone) values ($1, $2, $3, $4, $5)",
-      [codigoId, i, l.rotulo, l.url, l.icone]);
+    await db.query(
+      "insert into pagina_links (codigo_id, posicao, rotulo, url, icone, pix_chave, pix_nome, pix_cidade) values ($1, $2, $3, $4, $5, $6, $7, $8)",
+      [codigoId, i, l.rotulo, l.url, l.icone, l.pix?.chave ?? null, l.pix?.nome ?? null, l.pix?.cidade ?? null]);
   }
+}
+
+/** Botões enviados pelo formulário de configuração: os campos se repetem, um conjunto por botão, na mesma ordem. */
+export function linksDoFormulario(fd: FormData): EntradaLink[] {
+  const lista = (campo: string) => fd.getAll(campo).map(String);
+  const [urls, icones] = [lista("link_url"), lista("link_icone")];
+  const [chaves, nomes, cidades] = [lista("link_pix_chave"), lista("link_pix_nome"), lista("link_pix_cidade")];
+  return lista("link_rotulo").slice(0, 50).map((rotulo, i) => ({
+    rotulo, url: urls[i] ?? "", icone: icones[i] ?? "link",
+    pix_chave: chaves[i] ?? "", pix_nome: nomes[i] ?? "", pix_cidade: cidades[i] ?? "",
+  }));
 }
 
 // ---- Imagens (logo e fundo) ----
