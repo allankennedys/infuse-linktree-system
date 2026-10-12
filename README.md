@@ -121,6 +121,14 @@ e as imagens. Não vê nem altera cliente, observações, status, lotes ou audit
 - "Remover dados do cliente" também tira o acesso. Conta sem nenhum código é apagada.
 - Exige a migration `0005_gerentes.sql`: rode `npm run db:migrate` no banco **antes** de publicar esta versão.
 
+## Favicon nos botões "Link"
+
+Botão da página de links com o ícone genérico "Link" mostra o favicon do site de destino. Ao salvar, o servidor
+pede o favicon a dois serviços públicos de endereço fixo (Google e DuckDuckGo), guarda a cópia no banco e a serve
+em `/icone/<host>`; a página pública continua sem recurso de terceiros. O servidor nunca acessa o site de destino,
+e os serviços recebem só o nome do domínio. Se nenhum deles tiver o favicon, o botão fica com o ícone genérico.
+Exige a migration `0006_favicons.sql`.
+
 ## Deploy
 
 Nada foi publicado por este projeto. Passos para quem for subir (exemplo com Vercel + Postgres gerenciado):

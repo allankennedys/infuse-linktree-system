@@ -1,5 +1,6 @@
 import { acessoAoCodigo } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { faviconsDaPagina } from "@/lib/favicon";
 import { inteiroPositivo } from "@/lib/formato";
 import { obterPagina, versoesDasImagens } from "@/lib/pagina";
 import { renderizarPagina } from "@/lib/pagina-html";
@@ -15,7 +16,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!id || !pagina) return new Response("Este código ainda não tem página de links salva.", { status: 404 });
   const versoes = await versoesDasImagens(db, id);
   const imagem = (tipo: "logo" | "fundo") => (versoes[tipo] ? `/api/codigos/${id}/imagem/${tipo}?v=${versoes[tipo]}` : undefined);
-  return new Response(renderizarPagina(pagina, { logo: imagem("logo"), fundo: imagem("fundo") }), {
+  const favicons = await faviconsDaPagina(db, pagina);
+  return new Response(renderizarPagina(pagina, { logo: imagem("logo"), fundo: imagem("fundo") }, { favicons }), {
     headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" },
   });
 }

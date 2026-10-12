@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db";
 import { formatarData, inteiroPositivo } from "@/lib/formato";
 import { formatarNumero } from "@/lib/token";
 
-export const metadata: Metadata = { title: "Auditoria" };
+export const metadata: Metadata = { title: "Logs" };
 const POR_PAGINA = 50;
 
 export default async function Auditoria({ searchParams }: { searchParams: Promise<{ pagina?: string }> }) {
@@ -17,12 +17,7 @@ export default async function Auditoria({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <div className="titulo-pagina">
-        <div>
-          <h1>Auditoria</h1>
-          <p className="suave">Não guarda nomes de clientes, observações nem URLs completas de destino.</p>
-        </div>
-      </div>
+      <div className="titulo-pagina"><h1>Logs</h1></div>
       <div className="tabela-rolagem">
         <table>
           <thead><tr><th>Quando</th><th>Ação</th><th>Alvo</th><th>Detalhes</th><th>Quem</th></tr></thead>
@@ -30,15 +25,15 @@ export default async function Auditoria({ searchParams }: { searchParams: Promis
             {itens.map((h) => (
               <tr key={h.id}>
                 <td className="suave">{formatarData(h.em)}</td>
-                <td>{ROTULO_ACAO[h.acao] ?? h.acao}</td>
-                <td className="mono">
+                <td data-rotulo="Ação">{ROTULO_ACAO[h.acao] ?? h.acao}</td>
+                <td data-rotulo="Alvo" className="mono">
                   {h.codigo_id && h.numero ? <Link href={`/codigos/${h.codigo_id}`}>{formatarNumero(h.numero)}</Link>
                     : h.lote_id ? <Link href={`/lotes/${h.lote_id}`}>Lote #{h.lote_id}</Link> : "—"}
                 </td>
-                <td className="mono quebra">
+                <td data-rotulo="Detalhes" className="mono quebra">
                   {Object.entries(h.meta).map(([k, v]) => `${k}: ${v ?? "—"}`).join(" · ")}
                 </td>
-                <td>{autorDe(h)}</td>
+                <td data-rotulo="Quem">{autorDe(h)}</td>
               </tr>
             ))}
             {itens.length === 0 && <tr><td colSpan={5} className="vazio">Nenhum evento registrado.</td></tr>}

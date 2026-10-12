@@ -60,10 +60,10 @@ small { font-size: 0.85rem; }
 
 /* Seção em duas colunas: título à esquerda, conteúdo à direita, separadas por um fio. */
 .secao { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 12px 40px; padding-top: 28px; border-top: 1px solid var(--linha); }
-.secao > div { display: grid; gap: 14px; align-content: start; }
+.secao > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
 .secao > div > p { margin: 0; }
 
-.pilha { display: grid; gap: 14px; }
+.pilha { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .campo { display: grid; gap: 6px; }
 .campo > span { font-size: 0.85rem; color: var(--suave); }
 .cresce { flex: 1; min-width: 200px; }
@@ -119,7 +119,7 @@ table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
 th, td { text-align: left; padding: 11px 16px 11px 0; border-bottom: 1px solid var(--linha); vertical-align: middle; }
 th:last-child, td:last-child { padding-right: 0; }
 th { color: var(--suave); font-weight: 400; font-size: 0.85rem; white-space: nowrap; padding-top: 0; }
-tbody tr:hover td { background: var(--campo); }
+@media (hover: hover) { tbody tr:hover td { background: var(--campo); } }
 td.vazio { color: var(--suave); padding: 28px 0; }
 tbody tr:hover td.vazio { background: none; }
 td.direita { text-align: right; }
@@ -158,18 +158,27 @@ td.direita .acoes-linha { justify-content: flex-end; }
 .modos small { color: var(--suave); }
 input[type="radio"] { accent-color: var(--azul); margin: 4px 0 0; flex: none; }
 .editor-pagina { padding-left: 16px; border-left: 1px solid var(--linha-forte); }
-.grade-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+/* Editor da página de links com a prévia ao lado; a prévia acompanha a rolagem. */
+.com-previa { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: start; }
+.previa { position: sticky; top: 20px; display: grid; gap: 8px; justify-items: start; }
+.previa-celular { border: 1px solid var(--linha-forte); border-radius: 22px; overflow: hidden; background: #030305; }
+.previa-celular iframe { display: block; border: 0; transform-origin: 0 0; background: #030305; }
+.com-previa .grade-2 { grid-template-columns: 1fr; }
+.com-previa .linha-link { grid-template-columns: 130px minmax(0, 1fr) auto; padding-bottom: 12px; border-bottom: 1px solid var(--linha); }
+.com-previa .linha-link > :nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+.abrir-previa, .fechar-previa { display: none; }
+.grade-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .grade-2 > * { min-width: 0; }
 input[type="color"] { width: 64px; height: 38px; padding: 2px; border: 1px solid var(--linha-forte); border-radius: 6px; background: var(--campo); cursor: pointer; }
 .linha-link { display: grid; grid-template-columns: 170px 1fr 1.4fr auto; gap: 8px; align-items: center; }
 .linha-link > * { min-width: 0; }
 .linha-link .botao.pequeno { min-height: 38px; min-width: 34px; padding: 0 8px; }
-.imagem-da-pagina { display: grid; gap: 10px; align-content: start; justify-items: start; }
+.imagem-da-pagina { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; justify-items: start; }
 .imagem-da-pagina p { margin: 0; }
 .miniatura { max-width: 100%; border: 1px solid var(--linha); border-radius: 6px; display: block; }
 .miniatura.logo { height: 72px; width: auto; padding: 8px; background: repeating-conic-gradient(#26262b 0% 25%, #17171a 0% 50%) 0 0 / 16px 16px; }
 .miniatura.fundo { height: 120px; width: 200px; object-fit: cover; }
-input[type="file"] { color: var(--suave); font: inherit; font-size: 0.85rem; max-width: 100%; }
+input[type="file"] { color: var(--suave); font: inherit; font-size: 0.85rem; max-width: 100%; min-width: 0; flex: 1 1 160px; }
 
 .tela-login { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
 .login { width: 100%; max-width: 320px; display: grid; gap: 28px; }
@@ -178,17 +187,94 @@ input[type="file"] { color: var(--suave); font: inherit; font-size: 0.85rem; max
 .documento { max-width: 680px; margin: 0 auto; padding: 48px 24px 80px; }
 .documento h2 { margin: 32px 0 10px; }
 
+/* Tela de toque (celular ou tablet), em qualquer largura. */
+@media (max-width: 760px), (pointer: coarse) {
+  /* Campos com 16px: abaixo disso o iPhone dá zoom ao focar. Alvos de toque com pelo menos 44px. */
+  input[type="text"], input[type="email"], input[type="password"], input[type="url"],
+  input[type="number"], input[type="search"], select, textarea { font-size: 16px; min-height: 44px; }
+  .botao { min-height: 44px; }
+  .botao.pequeno { min-height: 40px; padding: 0 14px; font-size: 0.9rem; }
+  .confirmacao { padding: 6px 0; }
+  input[type="checkbox"] { width: 20px; height: 20px; margin-top: 1px; }
+  input[type="radio"] { width: 18px; height: 18px; margin-top: 2px; }
+  input[type="color"] { width: 88px; height: 44px; }
+  .botao.texto { min-height: 44px; padding: 0 4px; }
+  .linha-link .botao.pequeno { min-height: 44px; min-width: 44px; }
+}
+
+/* Abaixo disso a prévia não cabe ao lado do editor: abre por cima, num botão fixo. */
+@media (max-width: 1000px) {
+  .secao { grid-template-columns: minmax(0, 1fr); }
+  .com-previa { grid-template-columns: minmax(0, 1fr); }
+  .previa {
+    position: fixed; inset: 0; z-index: 30; top: 0; padding: 16px; overflow-y: auto;
+    background: rgba(0, 0, 0, 0.88); place-content: center; justify-items: center; gap: 12px;
+    visibility: hidden; pointer-events: none;
+  }
+  .previa.aberta { visibility: visible; pointer-events: auto; }
+  .previa > .suave { display: none; }
+  .abrir-previa, .previa .fechar-previa { display: inline-flex; }
+  .abrir-previa {
+    position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 20;
+    border-radius: 999px; padding: 0 20px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+  }
+  .previa .fechar-previa { order: 2; background: var(--fundo); min-width: 160px; }
+}
+
 @media (max-width: 760px) {
-  .modos, .grade-2 { grid-template-columns: 1fr; }
-  .linha-link { grid-template-columns: 1fr; padding-bottom: 12px; border-bottom: 1px solid var(--linha); }
-  .secao { grid-template-columns: 1fr; }
-  .resumo-codigo { grid-template-columns: 1fr; gap: 24px; }
-  .dados { grid-template-columns: 1fr; gap: 2px; }
-  .dados dd { margin-bottom: 10px; }
-  .operacao { flex-direction: column; gap: 12px; }
-  .topo { gap: 8px 20px; padding: 10px 16px 0; height: auto; }
-  .topo nav { order: 3; flex-basis: 100%; height: 40px; margin: 0 -12px; }
-  .sessao { margin-left: auto; }
-  .conteudo { padding: 24px 16px 56px; }
   h1 { font-size: 1.45rem; }
+  .topo { gap: 8px 20px; padding: 10px 16px 0; height: auto; }
+  .topo nav { order: 3; flex-basis: 100%; height: 44px; margin: 0 -12px; overflow-x: auto; scrollbar-width: none; }
+  .topo nav a { white-space: nowrap; }
+  .sessao { margin-left: auto; }
+  .conteudo { padding: 24px 16px max(56px, env(safe-area-inset-bottom)); gap: 20px; }
+  .secao { grid-template-columns: minmax(0, 1fr); padding-top: 24px; }
+  .resumo-codigo { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .dados { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .dados dd { margin-bottom: 10px; }
+  .modos, .grade-2 { grid-template-columns: minmax(0, 1fr); }
+
+  .abas { flex-wrap: nowrap; gap: 24px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .abas a { white-space: nowrap; padding-bottom: 12px; }
+  .abas::-webkit-scrollbar, .topo nav::-webkit-scrollbar { display: none; }
+  .filtros { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .filtros input[type="search"], .filtros select { grid-column: 1 / -1; min-width: 0; max-width: none; width: 100%; }
+  .linha-form { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .linha-form .cresce { min-width: 0; }
+  .exportar .acoes-linha { display: grid; grid-template-columns: 1fr 1fr; }
+  .operacao { flex-direction: column; gap: 12px; }
+  .operacao .botao { align-self: stretch; }
+  .paginacao .botao.pequeno { min-width: 96px; }
+
+  /* Tabela vira lista: cada linha é um bloco, cada célula traz o nome da coluna. */
+  .tabela-rolagem { overflow-x: visible; }
+  table, tbody, tr, td { display: block; }
+  thead { display: none; }
+  tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; position: relative; padding: 14px 0; border-bottom: 1px solid var(--linha); }
+  tbody tr:first-child { padding-top: 0; }
+  td, td:last-child { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 3px 0; border: 0; text-align: right; }
+  td[data-rotulo]::before { content: attr(data-rotulo); color: var(--suave); font-size: 0.85rem; flex: none; text-align: left; }
+  td:first-child { grid-column: 1; font-size: 1rem; text-align: left; }
+  /* O status fica na primeira linha, ao lado do número; o bloco inteiro abre o item. */
+  td.ao-lado { grid-column: 2; grid-row: 1; }
+  td:first-child a { text-decoration: none; }
+  td:first-child a::after { content: ""; position: absolute; inset: 0; }
+  td:empty, .some-no-celular { display: none; }
+  td.direita { position: relative; z-index: 1; padding-top: 10px; }
+  form .botao.primario:not(.abrir-previa) { width: 100%; }
+  td.direita .acoes-linha { flex: 1; }
+  td.direita .botao { flex: 1; }
+  td.vazio { justify-content: flex-start; text-align: left; padding: 12px 0; }
+
+  /* Botão da página de links: ícone e ordem em cima, texto e endereço em linhas próprias. */
+  .linha-link, .com-previa .linha-link { grid-template-columns: minmax(0, 1fr) auto; padding-bottom: 14px; border-bottom: 1px solid var(--linha); }
+  .linha-link > :nth-child(2), .linha-link > :nth-child(3),
+  .com-previa .linha-link > :nth-child(3) { grid-column: 1 / -1; grid-row: auto; }
+  .linha-link > :nth-child(4) { grid-column: 2; grid-row: 1; flex-wrap: nowrap; }
+  .editor-pagina { padding-left: 0; border-left: 0; }
+  .imagem-da-pagina { justify-items: stretch; }
+  .imagem-da-pagina .linha-form { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .miniatura.fundo { width: 100%; height: 140px; }
+  .login { gap: 24px; }
+  .documento { padding: 32px 16px 64px; }
 }

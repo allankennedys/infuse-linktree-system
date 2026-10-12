@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { acaoConfigurarCliente, acaoImagemCliente } from "@/app/(cliente)/acoes";
-import { FormConfiguracao } from "@/componentes/FormConfiguracao";
-import { ImagensDaPagina } from "@/componentes/ImagensDaPagina";
+import { SecoesDeConteudo } from "@/componentes/SecoesDeConteudo";
 import { exigirGerente } from "@/lib/auth";
 import { obterCodigo } from "@/lib/codigos";
 import { getDb } from "@/lib/db";
@@ -45,36 +44,26 @@ export default async function MeuCodigo({ params }: { params: Promise<{ id: stri
         </div>
       </section>
 
-      <section className="secao">
-        <h2>Conteúdo</h2>
-        <div>
-          <FormConfiguracao
-            id={codigo.id} urlPublica={publica} modo={codigo.modo} destino={codigo.destino ?? ""} cliente="" notas=""
-            pagina={{
-              titulo: pagina?.titulo ?? "", subtitulo: pagina?.subtitulo ?? "",
-              subtitulo_url: pagina?.subtitulo_url ?? "", rodape: pagina?.rodape ?? "",
-              cor_fundo: pagina?.cor_fundo ?? PADRAO_PAGINA.cor_fundo,
-              cor_destaque: pagina?.cor_destaque ?? PADRAO_PAGINA.cor_destaque,
-              links: pagina?.links ?? [{ rotulo: "", url: "", icone: "link" }],
-            }}
-            icones={Object.entries(ICONES).map(([chave, i]) => ({ chave, rotulo: i.rotulo }))}
-            maximoDeLinks={LIMITES_PAGINA.links}
-            acao={acaoConfigurarCliente} areaDoCliente
-          />
-        </div>
-      </section>
-
-      {(codigo.modo === "PAGINA" || pagina) && (
-        <section className="secao">
-          <h2>Imagens da página</h2>
-          <div>
-            <ImagensDaPagina
-              id={codigo.id} versoes={versoes} acao={acaoImagemCliente}
-              limitesKb={{ logo: TAMANHO_MAXIMO_IMAGEM.logo / 1024, fundo: TAMANHO_MAXIMO_IMAGEM.fundo / 1024 }}
-            />
-          </div>
-        </section>
-      )}
+      <SecoesDeConteudo
+        titulo="Conteúdo" temPagina={!!pagina}
+        configuracao={{
+          id: codigo.id, urlPublica: publica, modo: codigo.modo, destino: codigo.destino ?? "", cliente: "", notas: "",
+          pagina: {
+            titulo: pagina?.titulo ?? "", subtitulo: pagina?.subtitulo ?? "",
+            subtitulo_url: pagina?.subtitulo_url ?? "", rodape: pagina?.rodape ?? "",
+            cor_fundo: pagina?.cor_fundo ?? PADRAO_PAGINA.cor_fundo,
+            cor_destaque: pagina?.cor_destaque ?? PADRAO_PAGINA.cor_destaque,
+            links: pagina?.links ?? [{ rotulo: "", url: "", icone: "link" }],
+          },
+          icones: Object.entries(ICONES).map(([chave, i]) => ({ chave, rotulo: i.rotulo })),
+          maximoDeLinks: LIMITES_PAGINA.links,
+          acao: acaoConfigurarCliente, areaDoCliente: true,
+        }}
+        imagens={{
+          id: codigo.id, versoes, acao: acaoImagemCliente,
+          limitesKb: { logo: TAMANHO_MAXIMO_IMAGEM.logo / 1024, fundo: TAMANHO_MAXIMO_IMAGEM.fundo / 1024 },
+        }}
+      />
     </>
   );
 }

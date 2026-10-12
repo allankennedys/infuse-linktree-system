@@ -4,9 +4,8 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { AcessoDoCliente } from "@/componentes/AcessoDoCliente";
 import { Etiqueta } from "@/componentes/Etiqueta";
-import { FormConfiguracao } from "@/componentes/FormConfiguracao";
-import { ImagensDaPagina } from "@/componentes/ImagensDaPagina";
 import { PainelDeAcoes } from "@/componentes/PainelDeAcoes";
+import { SecoesDeConteudo } from "@/componentes/SecoesDeConteudo";
 import { exigirAdmin } from "@/lib/auth";
 import { autorDe, historicoDoCodigo, ROTULO_ACAO } from "@/lib/auditoria";
 import { obterCodigo } from "@/lib/codigos";
@@ -110,39 +109,29 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
       </section>
 
       {codigo.status !== "ARQUIVADO" && (
-        <section className="secao">
-          <h2>Configuração</h2>
-          <div>
-          {codigo.status === "DESATIVADO" && (
+        <SecoesDeConteudo
+          titulo="Configuração" temPagina={!!pagina}
+          aviso={codigo.status === "DESATIVADO" && (
             <p className="aviso atencao">Código desativado. Dá para editar, mas ele só volta a funcionar depois de reativado.</p>
           )}
-          <FormConfiguracao
-            id={codigo.id} urlPublica={publica} modo={codigo.modo}
-            destino={codigo.destino ?? ""} cliente={codigo.cliente ?? ""} notas={codigo.notas ?? ""}
-            pagina={{
+          configuracao={{
+            id: codigo.id, urlPublica: publica, modo: codigo.modo,
+            destino: codigo.destino ?? "", cliente: codigo.cliente ?? "", notas: codigo.notas ?? "",
+            pagina: {
               titulo: pagina?.titulo ?? "", subtitulo: pagina?.subtitulo ?? "",
               subtitulo_url: pagina?.subtitulo_url ?? "", rodape: pagina?.rodape ?? "",
               cor_fundo: pagina?.cor_fundo ?? PADRAO_PAGINA.cor_fundo,
               cor_destaque: pagina?.cor_destaque ?? PADRAO_PAGINA.cor_destaque,
               links: pagina?.links ?? [{ rotulo: "", url: "", icone: "link" }],
-            }}
-            icones={Object.entries(ICONES).map(([chave, i]) => ({ chave, rotulo: i.rotulo }))}
-            maximoDeLinks={LIMITES_PAGINA.links}
-          />
-          </div>
-        </section>
-      )}
-
-      {codigo.status !== "ARQUIVADO" && (ehPagina || pagina) && (
-        <section className="secao">
-          <h2>Imagens da página</h2>
-          <div>
-          <ImagensDaPagina
-            id={codigo.id} versoes={versoes}
-            limitesKb={{ logo: TAMANHO_MAXIMO_IMAGEM.logo / 1024, fundo: TAMANHO_MAXIMO_IMAGEM.fundo / 1024 }}
-          />
-          </div>
-        </section>
+            },
+            icones: Object.entries(ICONES).map(([chave, i]) => ({ chave, rotulo: i.rotulo })),
+            maximoDeLinks: LIMITES_PAGINA.links,
+          }}
+          imagens={{
+            id: codigo.id, versoes,
+            limitesKb: { logo: TAMANHO_MAXIMO_IMAGEM.logo / 1024, fundo: TAMANHO_MAXIMO_IMAGEM.fundo / 1024 },
+          }}
+        />
       )}
 
       {codigo.status !== "ARQUIVADO" && (
@@ -176,9 +165,9 @@ export default async function PaginaDoCodigo({ params }: { params: Promise<{ id:
               {historico.map((h) => (
                 <tr key={h.id}>
                   <td className="suave">{formatarData(h.em)}</td>
-                  <td>{ROTULO_ACAO[h.acao] ?? h.acao}</td>
-                  <td className="mono quebra">{detalhes(h.meta)}</td>
-                  <td>{autorDe(h)}</td>
+                  <td data-rotulo="Ação">{ROTULO_ACAO[h.acao] ?? h.acao}</td>
+                  <td data-rotulo="Detalhes" className="mono quebra">{detalhes(h.meta)}</td>
+                  <td data-rotulo="Quem">{autorDe(h)}</td>
                 </tr>
               ))}
             </tbody>

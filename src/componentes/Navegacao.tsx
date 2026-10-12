@@ -8,7 +8,7 @@ export type ItemDeMenu = { href: string; rotulo: string; prefixos?: string[] };
 const PAINEL: ItemDeMenu[] = [
   { href: "/", rotulo: "Códigos", prefixos: ["/codigos"] },
   { href: "/lotes", rotulo: "Lotes", prefixos: ["/lotes"] },
-  { href: "/auditoria", rotulo: "Auditoria", prefixos: ["/auditoria"] },
+  { href: "/auditoria", rotulo: "Logs", prefixos: ["/auditoria"] },
 ];
 
 export function Navegacao({ itens = PAINEL }: { itens?: ItemDeMenu[] }) {

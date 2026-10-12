@@ -1,6 +1,14 @@
-import { hostDe } from "./destino";
+// Este módulo também roda no navegador (prévia ao vivo do formulário): nada de APIs do Node aqui.
 import { ICONES } from "./icones";
 import type { Pagina } from "./pagina";
+
+function hostDe(url: string): string | null {
+  try {
+    return new URL(url).hostname || null;
+  } catch {
+    return null;
+  }
+}
 
 const escapar = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -12,6 +20,45 @@ function luminancia(cor: string): number {
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   };
   return 0.2126 * canal(1) + 0.7152 * canal(3) + 0.0722 * canal(5);
+}
+
+/** Contraste WCAG entre duas cores #rrggbb (de 1 a 21). */
+export function contraste(a: string, b: string): number {
+  const [clara, escura] = [luminancia(a), luminancia(b)].sort((x, y) => y - x) as [number, number];
+  return (clara + 0.05) / (escura + 0.05);
+}
+
+/** Mistura duas cores #rrggbb: `t` = 0 devolve `a`, 1 devolve `b`. */
+function misturar(a: string, b: string, t: number): string {
+  const canal = (i: number) =>
+    Math.round(Number.parseInt(a.slice(i, i + 2), 16) * (1 - t) + Number.parseInt(b.slice(i, i + 2), 16) * t)
+      .toString(16).padStart(2, "0");
+  return `#${canal(1)}${canal(3)}${canal(5)}`;
+}
+
+/** Contraste mínimo de texto (WCAG AA) e de elemento gráfico, como o desenho do ícone. */
+const MINIMO_TEXTO = 4.5, MINIMO_ICONE = 3;
+
+/**
+ * Cores de texto, cartão e ícone calculadas a partir do fundo e do destaque escolhidos, para
+ * qualquer combinação continuar legível: o texto é claro ou escuro conforme o que contrasta
+ * mais com o fundo, e vai a branco ou preto puro nos tons médios, onde o tom suave não basta.
+ */
+export function temaDaPagina(fundo: string, destaque: string, comImagem = false) {
+  // Com imagem de fundo há sempre uma película escura por cima, então o texto é claro.
+  const escuro = comImagem || contraste("#ffffff", fundo) >= contraste("#000000", fundo);
+  const atras = comImagem ? "#030305" : fundo;
+  let texto = escuro ? "#f5f7fa" : "#12151f";
+  if (contraste(texto, atras) < MINIMO_TEXTO) texto = escuro ? "#ffffff" : "#000000";
+  // Subtítulo e nº de inventário: um tom mais apagado, se ainda der para ler; senão, a cor do texto.
+  let suave = misturar(texto, atras, 0.3);
+  if (contraste(suave, atras) < MINIMO_TEXTO) suave = texto;
+  // O desenho do ícone fica sobre um quadrado branco: destaque claro demais é escurecido só ali.
+  let icone = destaque;
+  for (let t = 0.1; contraste(icone, "#ffffff") < MINIMO_ICONE && t <= 1; t += 0.1) icone = misturar(destaque, "#000000", t);
+  return escuro
+    ? { texto, suave, icone, suaveNoCartao: "#a3aeb8", cartao: "rgba(20,22,27,.72)", ativo: "rgba(30,33,40,.9)", borda: "rgba(215,226,234,.12)" }
+    : { texto, suave, icone, suaveNoCartao: "#5b6472", cartao: "rgba(255,255,255,.82)", ativo: "rgba(255,255,255,.96)", borda: "rgba(18,21,31,.1)" };
 }
 
 const SETA = '<svg class="seta" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -33,6 +80,10 @@ export type ExtrasDaPagina = {
   pix?: PixDaPagina;
   /** Escurece a imagem de fundo e puxa o tom para o azul, como no infuse-links. */
   fundoAzulado?: boolean;
+  /** Favicon guardado de cada host (host → endereço da imagem). Vale para os botões com o ícone "Link". */
+  favicons?: Record<string, string>;
+  /** Prévia do formulário: botão com texto mas ainda sem endereço válido aparece, sem link. */
+  previa?: boolean;
 };
 
 /**
@@ -46,18 +97,19 @@ export function renderizarPagina(p: Pagina, imagens: ImagensDaPagina = {}, extra
   const cor = (v: string, padrao: string) => (/^#[0-9a-f]{6}$/.test(v) ? v : padrao);
   const fundo = cor(p.cor_fundo, "#030305");
   const destaque = cor(p.cor_destaque, "#2f7bff");
-  // Com imagem de fundo há sempre uma película escura por cima, então o texto é claro.
-  const escuro = !!imagens.fundo || luminancia(fundo) < 0.4;
-  const t = escuro
-    ? { texto: "#f5f7fa", suave: "#a3aeb8", cartao: "rgba(20,22,27,.72)", ativo: "rgba(30,33,40,.9)", borda: "rgba(215,226,234,.12)" }
-    : { texto: "#12151f", suave: "#5b6472", cartao: "rgba(255,255,255,.82)", ativo: "rgba(255,255,255,.96)", borda: "rgba(18,21,31,.1)" };
+  const t = temaDaPagina(fundo, destaque, !!imagens.fundo);
   const seguro = (url: string | null) => (url && hostDe(url) && /^https:\/\//.test(url) ? url : null);
 
   const links = p.links
-    .filter((l) => seguro(l.url))
+    .filter((l) => seguro(l.url) || (extras.previa && l.rotulo.trim()))
     .map((l) => {
       const icone = ICONES[l.icone] ?? ICONES.link!;
-      return `<a class="link" href="${escapar(l.url)}" target="_blank" rel="noopener noreferrer"><span class="icone${icone.semFundo ? " sem-fundo" : ""}">${icone.svg}</span><span class="rotulo">${escapar(l.rotulo)}</span>${SETA}</a>`;
+      const favicon = l.icone === "link" ? extras.favicons?.[hostDe(l.url)?.toLowerCase() ?? ""] : undefined;
+      const desenho = favicon ? `<img src="${escapar(favicon)}" alt="" width="36" height="36">` : icone.svg;
+      const miolo = `<span class="icone${icone.semFundo ? " sem-fundo" : ""}">${desenho}</span><span class="rotulo">${escapar(l.rotulo)}</span>${SETA}`;
+      return seguro(l.url)
+        ? `<a class="link" href="${escapar(l.url)}" target="_blank" rel="noopener noreferrer">${miolo}</a>`
+        : `<span class="link">${miolo}</span>`;
     })
     .join("\n      ");
   const botaoPix = pix
@@ -116,15 +168,16 @@ body{background:${fundo};color:${t.texto};font-family:Kanit,system-ui,sans-serif
 .links{width:100%;margin-top:clamp(28px,4.5vh,40px);display:flex;flex-direction:column;gap:14px}
 .link{display:flex;align-items:center;gap:16px;width:100%;min-height:82px;padding:12px 18px 12px 12px;border:1px solid ${t.borda};border-radius:20px;background:${t.cartao};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:inherit;text-decoration:none;touch-action:manipulation;transition:background .15s ease,border-color .15s ease,transform .15s ease}
 .link:active{background:${t.ativo};transform:scale(.985)}
-.link:focus-visible{outline:2px solid ${destaque};outline-offset:2px}
+.link:focus-visible{outline:2px solid ${t.texto};outline-offset:2px}
 .link:first-child{border-color:${destaque}59}
 @media (hover:hover){.link:hover{background:${t.ativo};border-color:${destaque}66}.link:hover .seta{color:${t.texto};transform:translateX(2px)}}
-.icone{flex:none;display:grid;place-items:center;width:58px;height:58px;border-radius:15px;background:#fff;color:${destaque}}
+.icone{flex:none;display:grid;place-items:center;width:58px;height:58px;border-radius:15px;background:#fff;color:${t.icone}}
 .icone svg{width:32px;height:32px}
+.icone img{display:block;width:36px;height:36px;object-fit:contain;border-radius:8px}
 .icone.sem-fundo{background:transparent}
 .icone.sem-fundo svg{width:58px;height:58px}
 .rotulo{flex:1;font-size:1.18rem;font-weight:500;overflow-wrap:anywhere;min-width:0}
-.seta{flex:none;width:22px;height:22px;color:${t.suave};transition:color .15s ease,transform .15s ease}
+.seta{flex:none;width:22px;height:22px;color:${t.suaveNoCartao};transition:color .15s ease,transform .15s ease}
 .rodape{margin-top:auto;padding-top:32px;font-size:1.05rem;text-align:center;overflow-wrap:anywhere}
 .codigo{margin-top:10px;color:${t.suave};font-size:.85rem;letter-spacing:.08em;text-align:center}
 ${pix ? `.modal{position:fixed;inset:0;z-index:10;display:none;align-items:flex-end;justify-content:center}
@@ -150,7 +203,7 @@ ${pix ? `.modal{position:fixed;inset:0;z-index:10;display:none;align-items:flex-
 @keyframes aparece{from{opacity:0}to{opacity:1}}
 @keyframes sobe{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media (min-width:600px){.modal{align-items:center;padding:20px}.modal-caixa{max-width:380px;border-radius:22px;border-bottom:1px solid ${t.borda};padding-bottom:22px}.alca{display:none}.modal-caixa h2{margin-top:14px}}
-` : ""}@media (max-height:640px){.link{min-height:70px;border-radius:18px}.icone{width:50px;height:50px;border-radius:13px}.icone svg{width:28px;height:28px}.icone.sem-fundo svg{width:50px;height:50px}.links{gap:12px}.nome{font-size:1.2rem}}
+` : ""}@media (max-height:640px){.link{min-height:70px;border-radius:18px}.icone{width:50px;height:50px;border-radius:13px}.icone svg{width:28px;height:28px}.icone img{width:32px;height:32px}.icone.sem-fundo svg{width:50px;height:50px}.links{gap:12px}.nome{font-size:1.2rem}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>

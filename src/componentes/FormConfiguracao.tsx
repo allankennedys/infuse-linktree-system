@@ -1,20 +1,35 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { acaoConfigurar, type EstadoConfiguracao } from "@/app/(painel)/acoes";
+import { PreviaDaPagina } from "./PreviaDaPagina";
 
 type Link = { rotulo: string; url: string; icone: string };
 export type DadosDaPagina = {
   titulo: string; subtitulo: string; subtitulo_url: string; rodape: string;
   cor_fundo: string; cor_destaque: string; links: Link[];
 };
-type Props = {
+export type PropsDaConfiguracao = {
   id: number; urlPublica: string | null; modo: "LINK" | "PAGINA";
   destino: string; cliente: string; notas: string; pagina: DadosDaPagina;
   icones: { chave: string; rotulo: string }[]; maximoDeLinks: number;
   /** Área do cliente: usa a action do gerente e esconde os campos internos (cliente e observações). */
   acao?: typeof acaoConfigurar; areaDoCliente?: boolean;
+  /** Logo e fundo já enviados, para a prévia ao vivo da página de links. */
+  imagensDaPrevia?: { logo?: string; fundo?: string };
+  /** Avisa qual modo está selecionado no formulário, mesmo antes de salvar. */
+  aoMudarModo?: (modo: "LINK" | "PAGINA") => void;
 };
+
+/** Host de um endereço https completo, para procurar o favicon; "" enquanto o endereço não está pronto. */
+function hostHttps(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    return u.protocol === "https:" && u.hostname.includes(".") ? u.hostname.toLowerCase() : "";
+  } catch {
+    return "";
+  }
+}
 
 function hostDigitado(valor: string): { host?: string; problema?: string } {
   const v = valor.trim();
@@ -31,9 +46,9 @@ function hostDigitado(valor: string): { host?: string; problema?: string } {
   }
 }
 
-export function FormConfiguracao(props: Props) {
+export function FormConfiguracao(props: PropsDaConfiguracao) {
   const [estado, acao, enviando] = useActionState<EstadoConfiguracao, FormData>(props.acao ?? acaoConfigurar, { tipo: "inicial" });
-  // Campos controlados: o React limpa formulários não controlados depois de cada action.
+  const [, iniciarEnvio] = useTransition();
   const [modo, setModo] = useState(props.modo);
   const [destino, setDestino] = useState(props.destino);
   const [cliente, setCliente] = useState(props.cliente);
@@ -50,6 +65,28 @@ export function FormConfiguracao(props: Props) {
     setNotas(props.notas);
     setPagina(props.pagina);
   }
+  // Favicon dos botões "Link", para a prévia: procurado um pouco depois de o endereço parar de mudar.
+  // null = já procuramos e o site não tem; fica o ícone genérico.
+  const [favicons, setFavicons] = useState<Record<string, string | null>>({});
+  const hostsDeLink = modo === "PAGINA"
+    ? [...new Set(pagina.links.filter((l) => l.icone === "link").map((l) => hostHttps(l.url)).filter(Boolean))].join(" ")
+    : "";
+  useEffect(() => {
+    const faltam = hostsDeLink.split(" ").filter((h) => h && !(h in favicons));
+    if (faltam.length === 0) return;
+    const espera = setTimeout(() => {
+      for (const host of faltam) {
+        const endereco = `/icone/${encodeURIComponent(host)}`;
+        fetch(endereco).then((r) => r.status === 200, () => false)
+          .then((achou) => setFavicons((antes) => ({ ...antes, [host]: achou ? endereco : null })));
+      }
+    }, 700);
+    return () => clearTimeout(espera);
+  }, [hostsDeLink, favicons]);
+  // Em tela estreita a prévia não cabe ao lado: abre por cima, num botão fixo.
+  const [previaAberta, setPreviaAberta] = useState(false);
+  const { aoMudarModo } = props;
+  useEffect(() => aoMudarModo?.(modo), [aoMudarModo, modo]);
   const previa = hostDigitado(destino);
   // A confirmação vale só para o que foi enviado: se o admin editar algo depois do
   // alerta, o servidor avalia de novo e mostra os alertas certos.
@@ -70,17 +107,29 @@ export function FormConfiguracao(props: Props) {
   };
 
   return (
-    <form action={acao} className="pilha" onSubmit={() => setEnviado(digitado)}>
+    <form
+      className="pilha"
+      onSubmit={(e) => {
+        // Envio manual, sem <form action>: nesse modo o React devolve o formulário ao estado inicial
+        // depois de cada action, e os botões de opção e as listas de ícone passavam a mostrar (e a
+        // enviar, na confirmação de domínio) um valor diferente do escolhido.
+        e.preventDefault();
+        setEnviado(digitado);
+        const dados = new FormData(e.currentTarget);
+        iniciarEnvio(() => acao(dados));
+      }}
+    >
       <input type="hidden" name="id" value={props.id} />
+      <input type="hidden" name="modo" value={modo} />
 
       <fieldset className="modos">
         <legend>Ao ler o QR</legend>
         <label className={modo === "LINK" ? "ativo" : ""}>
-          <input type="radio" name="modo" value="LINK" checked={modo === "LINK"} onChange={() => setModo("LINK")} />
+          <input type="radio" name="modo_escolhido" value="LINK" checked={modo === "LINK"} onChange={() => setModo("LINK")} />
           <span><strong>Link direto</strong><small>Redireciona para um endereço.</small></span>
         </label>
         <label className={modo === "PAGINA" ? "ativo" : ""}>
-          <input type="radio" name="modo" value="PAGINA" checked={modo === "PAGINA"} onChange={() => setModo("PAGINA")} />
+          <input type="radio" name="modo_escolhido" value="PAGINA" checked={modo === "PAGINA"} onChange={() => setModo("PAGINA")} />
           <span><strong>Página de links</strong><small>Abre uma página com logo e botões.</small></span>
         </label>
       </fieldset>
@@ -98,6 +147,7 @@ export function FormConfiguracao(props: Props) {
           </small>
         </label>
       ) : (
+        <div className="com-previa">
         <div className="pilha editor-pagina">
           <div className="grade-2">
             <label className="campo">
@@ -155,6 +205,22 @@ export function FormConfiguracao(props: Props) {
               Só endereços https://. WhatsApp: https://wa.me/55DDDNUMERO.
             </small>
           </div>
+        </div>
+        <button type="button" className="botao primario abrir-previa" onClick={() => setPreviaAberta(true)}>Ver prévia</button>
+        <aside className={`previa ${previaAberta ? "aberta" : ""}`} aria-label="Prévia" onClick={() => setPreviaAberta(false)}>
+          <span className="suave">Prévia</span>
+          <button type="button" className="botao fechar-previa" onClick={() => setPreviaAberta(false)}>Fechar</button>
+          <PreviaDaPagina
+            imagens={props.imagensDaPrevia ?? {}}
+            favicons={Object.fromEntries(Object.entries(favicons).filter((par): par is [string, string] => !!par[1]))}
+            pagina={{
+              titulo: pagina.titulo.trim() || "Nome", subtitulo: pagina.subtitulo.trim() || null,
+              subtitulo_url: pagina.subtitulo_url.trim() || null, rodape: pagina.rodape.trim() || null,
+              cor_fundo: pagina.cor_fundo.toLowerCase(), cor_destaque: pagina.cor_destaque.toLowerCase(),
+              links: pagina.links.map((l) => ({ ...l, url: l.url.trim() })),
+            }}
+          />
+        </aside>
         </div>
       )}
 

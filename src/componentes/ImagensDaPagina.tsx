@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { acaoImagem, type EstadoSimples } from "@/app/(painel)/acoes";
 
-type Props = {
+export type PropsDasImagens = {
   id: number; versoes: { logo?: number; fundo?: number }; limitesKb: { logo: number; fundo: number };
   /** Área do cliente: usa a action do gerente. */
   acao?: typeof acaoImagem;
@@ -14,7 +14,7 @@ const TEXTOS = {
   fundo: { titulo: "Imagem de fundo", dica: "Cobre a cor de fundo e fica escurecida para o texto continuar legível." },
 } as const;
 
-export function ImagensDaPagina({ id, versoes, limitesKb, acao: acaoDoCliente }: Props) {
+export function ImagensDaPagina({ id, versoes, limitesKb, acao: acaoDoCliente }: PropsDasImagens) {
   const [estado, acao, enviando] = useActionState<EstadoSimples, FormData>(acaoDoCliente ?? acaoImagem, {});
   return (
     <>

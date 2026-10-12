@@ -6,7 +6,7 @@ import { codigosDoLote, gerarLote } from "@/lib/lotes";
 import {
   detectarMime, obterImagem, obterPagina, salvarImagem, validarImagem, validarPagina, type EntradaPagina,
 } from "@/lib/pagina";
-import { renderizarPagina } from "@/lib/pagina-html";
+import { contraste, renderizarPagina, temaDaPagina } from "@/lib/pagina-html";
 import { EXTRAS_INFUSE, IMAGENS_INFUSE, PAGINA_INFUSE } from "@/lib/pagina-infuse";
 import { atenderLeitura } from "@/lib/publico";
 import { decodificarRaster, gerarPng, rasterizarQr } from "@/lib/qr";
@@ -98,6 +98,32 @@ describe("HTML público", () => {
 
     const cliente = renderizarPagina(PAGINA_INFUSE, { fundo: "/x.jpg" });
     expect(cliente).not.toMatch(/<script|Pix|azulado"/);
+  });
+  it("qualquer cor de fundo e de destaque mantém texto e ícone legíveis", () => {
+    const hex = (n: number) => n.toString(16).padStart(2, "0");
+    const niveis = [0, 32, 64, 96, 128, 160, 192, 224, 255];
+    const cores = niveis.flatMap((r) => niveis.flatMap((g) => niveis.map((b) => `#${hex(r)}${hex(g)}${hex(b)}`)));
+    // Cor do cartão (rgba) aplicada sobre o fundo, para medir o texto do botão.
+    const sobre = (rgba: string, fundo: string) => {
+      const [r, g, b, a] = rgba.match(/[\d.]+/g)!.map(Number) as [number, number, number, number];
+      const canal = (c: number, i: number) => hex(Math.round(c * a + Number.parseInt(fundo.slice(i, i + 2), 16) * (1 - a)));
+      return `#${canal(r, 1)}${canal(g, 3)}${canal(b, 5)}`;
+    };
+    for (const fundo of cores) {
+      const t = temaDaPagina(fundo, "#2f7bff");
+      expect(contraste(t.texto, fundo), `título em ${fundo}`).toBeGreaterThanOrEqual(4.5);
+      expect(contraste(t.suave, fundo), `subtítulo em ${fundo}`).toBeGreaterThanOrEqual(4.5);
+      const cartao = sobre(t.cartao, fundo);
+      expect(contraste(t.texto, cartao), `botão em ${fundo}`).toBeGreaterThanOrEqual(4.5);
+      expect(contraste(t.suaveNoCartao, cartao), `seta em ${fundo}`).toBeGreaterThanOrEqual(3);
+    }
+    for (const destaque of cores) {
+      expect(contraste(temaDaPagina("#030305", destaque).icone, "#ffffff"), `ícone ${destaque}`).toBeGreaterThanOrEqual(3);
+    }
+    // Com imagem de fundo há película escura: o texto é sempre claro, seja qual for a cor escolhida.
+    expect(temaDaPagina("#ffffff", "#2f7bff", true).texto).toBe("#f5f7fa");
+    // As cores padrão continuam como eram.
+    expect(temaDaPagina("#030305", "#2f7bff")).toMatchObject({ texto: "#f5f7fa", icone: "#2f7bff" });
   });
   it("usa texto escuro em fundo claro e claro em fundo escuro", () => {
     const base = { titulo: "T", subtitulo: null, subtitulo_url: null, rodape: null, cor_destaque: "#2f7bff", links: [] };

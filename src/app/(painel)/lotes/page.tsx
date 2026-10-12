@@ -48,13 +48,13 @@ export default async function Lotes() {
             {lotes.map((l) => (
               <tr key={l.id}>
                 <td>{l.nome} <span className="suave">#{l.id}</span></td>
-                <td>{l.status === "PRONTO" ? l.quantidade : `0 de ${l.quantidade}`}</td>
-                <td>
+                <td data-rotulo="Códigos">{l.status === "PRONTO" ? l.quantidade : `0 de ${l.quantidade}`}</td>
+                <td className="ao-lado">
                   {l.status === "PRONTO" ? <span className="etiqueta configurado">Pronto</span>
                     : <span className="etiqueta com-erro" title={l.erro ?? undefined}>Falhou, nada criado</span>}
                 </td>
-                <td className="suave">{formatarData(l.criado_em)}</td>
-                <td>{l.criado_por_usuario ?? "—"}</td>
+                <td data-rotulo="Criado em" className="suave">{formatarData(l.criado_em)}</td>
+                <td data-rotulo="Criado por">{l.criado_por_usuario ?? "—"}</td>
                 <td className="direita">{l.status === "PRONTO" && <Link className="botao pequeno" href={`/lotes/${l.id}`}>Exportar</Link>}</td>
               </tr>
             ))}

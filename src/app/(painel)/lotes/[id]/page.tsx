@@ -67,8 +67,8 @@ export default async function Lote({ params }: { params: Promise<{ id: string }>
             {codigos.map((c) => (
               <tr key={c.id}>
                 <td className="mono"><Link href={`/codigos/${c.id}`}>{formatarNumero(c.numero)}</Link></td>
-                <td className="mono">{idCurto(c.token)}</td>
-                <td><Etiqueta status={c.status as Status} /></td>
+                <td data-rotulo="ID curto" className="mono">{idCurto(c.token)}</td>
+                <td className="ao-lado"><Etiqueta status={c.status as Status} /></td>
                 <td className="direita">
                   <div className="acoes-linha">
                     <a className="botao pequeno" href={`/api/codigos/${c.id}/png`}>PNG</a>

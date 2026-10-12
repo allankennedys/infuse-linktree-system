@@ -7,6 +7,7 @@ import { exigirGerente, tokenDoGerente } from "@/lib/auth";
 import { configurarCodigo, ErroDeNegocio, type Modo } from "@/lib/codigos";
 import { getDb } from "@/lib/db";
 import { hostsPermitidos, permiteDestinoLocal, segredoDeSessao } from "@/lib/env";
+import { garantirFavicons, hostsComIconeDeLink } from "@/lib/favicon";
 import { inteiroPositivo } from "@/lib/formato";
 import { trocarSenhaDoGerente } from "@/lib/gerentes";
 import { trocarImagem } from "@/lib/imagem-acao";
@@ -46,6 +47,11 @@ export async function acaoConfigurarCliente(_: EstadoConfiguracao, fd: FormData)
       { gerenteId: gerente.id }, { hostsPermitidos: hostsPermitidos(), permitirLocal: permiteDestinoLocal() },
     );
     if (r.tipo !== "salvo") return r;
+    // Guarda o favicon dos botões "Link". Se a busca falhar, a página fica com o ícone genérico.
+    if (modo === "PAGINA") {
+      await garantirFavicons(getDb(), hostsComIconeDeLink({ links: urls.map((url, i) => ({ url, rotulo: "", icone: icones[i] ?? "link" })) }))
+        .catch(() => {});
+    }
     revalidatePath("/", "layout");
     return { tipo: "salvo", modo: r.codigo.modo, destino: r.codigo.destino };
   } catch (e) {

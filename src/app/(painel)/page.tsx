@@ -81,12 +81,12 @@ export default async function Codigos({ searchParams }: { searchParams: Promise<
             {lista.itens.map((c) => (
               <tr key={c.id}>
                 <td className="mono"><Link href={`/codigos/${c.id}`}>{formatarNumero(c.numero)}</Link></td>
-                <td><Etiqueta status={c.status} /></td>
-                <td>{c.cliente ?? "—"}</td>
-                <td className="mono quebra">{c.modo === "PAGINA" ? `Página: ${c.pagina_titulo ?? "não preenchida"}` : resumirDestino(c.destino)}</td>
-                <td>{c.lote_nome}</td>
-                <td className="suave">{formatarData(c.criado_em)}</td>
-                <td className="suave">{formatarData(c.atualizado_em)}</td>
+                <td className="ao-lado"><Etiqueta status={c.status} /></td>
+                <td data-rotulo="Cliente" className={c.cliente ? undefined : "some-no-celular"}>{c.cliente ?? "—"}</td>
+                <td data-rotulo="Destino" className={`mono quebra ${c.modo === "PAGINA" || c.destino ? "" : "some-no-celular"}`}>{c.modo === "PAGINA" ? `Página: ${c.pagina_titulo ?? "não preenchida"}` : resumirDestino(c.destino)}</td>
+                <td data-rotulo="Lote" className="some-no-celular">{c.lote_nome}</td>
+                <td data-rotulo="Criado" className="suave some-no-celular">{formatarData(c.criado_em)}</td>
+                <td data-rotulo="Alterado" className="suave">{formatarData(c.atualizado_em)}</td>
               </tr>
             ))}
             {lista.itens.length === 0 && (

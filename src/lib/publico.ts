@@ -1,5 +1,6 @@
 import type { Db } from "./db";
 import { registrarAcesso, resolverToken, type Leitura } from "./codigos";
+import { faviconsDaPagina } from "./favicon";
 import { renderizarPagina } from "./pagina-html";
 import { EXTRAS_INFUSE, IMAGENS_INFUSE, PAGINA_INFUSE } from "./pagina-infuse";
 import { formatarNumero } from "./token";
@@ -74,7 +75,9 @@ export async function atenderLeitura(db: Db, token: string, op: OpcoesPublico = 
   if (alvo.tipo === "pagina") {
     const imagem = (tipo: "logo" | "fundo") =>
       alvo.imagens[tipo] ? `/q/${token}/img/${tipo}?v=${alvo.imagens[tipo]}` : undefined;
-    return new Response(renderizarPagina(alvo.pagina, { logo: imagem("logo"), fundo: imagem("fundo") }), {
+    // Sem favicon guardado (ou com o banco falhando nesta consulta) o botão fica com o ícone genérico.
+    const favicons = await faviconsDaPagina(db, alvo.pagina).catch(() => ({}));
+    return new Response(renderizarPagina(alvo.pagina, { logo: imagem("logo"), fundo: imagem("fundo") }, { favicons }), {
       status: 200, headers: { ...CABECALHOS, "Content-Type": "text/html; charset=utf-8" },
     });
   }

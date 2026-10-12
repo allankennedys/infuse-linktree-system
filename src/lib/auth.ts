@@ -80,3 +80,8 @@ export async function acessoAoCodigo(req: Request, codigoId: number): Promise<{ 
     "select 1 from codigos where id = $1 and gerente_id = $2 and status <> 'ARQUIVADO'", [codigoId, gerente.id]);
   return rows.length ? { gerenteId: gerente.id } : null;
 }
+
+/** Há alguém logado neste pedido, administrador ou gerente? */
+export async function alguemLogado(req: Request): Promise<boolean> {
+  return !!(await adminDoRequest(req)) || !!(await validarSessaoGerente(getDb(), cookieDe(req, nomeDoCookieDoGerente())));
+}

@@ -46,7 +46,7 @@ export function AcessoDoCliente({ id, usuario: atual, enderecoDeLogin, senhaMini
         <label className="campo cresce">
           <span>Usuário</span>
           <input type="text" name="usuario" value={usuario} onChange={(e) => setUsuario(e.target.value)}
-            maxLength={40} required autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="padaria-do-ze" />
+            maxLength={40} required autoComplete="off" autoCapitalize="none" spellCheck={false} />
         </label>
         <label className="campo cresce">
           <span>{atual ? "Nova senha" : "Senha"}</span>

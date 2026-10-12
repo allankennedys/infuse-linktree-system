@@ -23,8 +23,8 @@ export default async function MeusCodigos() {
             {codigos.map((c) => (
               <tr key={c.id}>
                 <td className="mono"><Link href={`/cliente/${c.id}`}>{formatarNumero(c.numero)}</Link></td>
-                <td><Etiqueta status={c.status} /></td>
-                <td className="quebra">{c.modo === "PAGINA" ? `Página “${c.pagina_titulo ?? "sem nome"}”` : resumirDestino(c.destino)}</td>
+                <td className="ao-lado"><Etiqueta status={c.status} /></td>
+                <td data-rotulo="Abre" className="quebra">{c.modo === "PAGINA" ? `Página “${c.pagina_titulo ?? "sem nome"}”` : resumirDestino(c.destino)}</td>
                 <td className="direita"><Link className="botao pequeno" href={`/cliente/${c.id}`}>Editar</Link></td>
               </tr>
             ))}

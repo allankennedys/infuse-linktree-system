@@ -6,6 +6,7 @@ import { exigirAdmin, sair } from "@/lib/auth";
 import { configurarCodigo, ErroDeNegocio, operarCodigo, type Modo, type Operacao } from "@/lib/codigos";
 import { getDb } from "@/lib/db";
 import { baseUrl, ErroDeConfiguracao, hostsPermitidos, permiteDestinoLocal } from "@/lib/env";
+import { garantirFavicons, hostsComIconeDeLink } from "@/lib/favicon";
 import { inteiroPositivo } from "@/lib/formato";
 import { definirGerente, removerGerente } from "@/lib/gerentes";
 import { trocarImagem } from "@/lib/imagem-acao";
@@ -69,6 +70,11 @@ export async function acaoConfigurar(_: EstadoConfiguracao, fd: FormData): Promi
       admin, { hostsPermitidos: hostsPermitidos(), permitirLocal: permiteDestinoLocal() },
     );
     if (r.tipo !== "salvo") return r;
+    // Guarda o favicon dos botões "Link". Se a busca falhar, a página fica com o ícone genérico.
+    if (modo === "PAGINA") {
+      await garantirFavicons(getDb(), hostsComIconeDeLink({ links: urls.map((url, i) => ({ url, rotulo: "", icone: icones[i] ?? "link" })) }))
+        .catch(() => {});
+    }
     revalidatePath("/", "layout");
     return { tipo: "salvo", modo: r.codigo.modo, destino: r.codigo.destino };
   } catch (e) {
